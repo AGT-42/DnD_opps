@@ -14,6 +14,7 @@ const getJson = async (path) => {
 export const fetchMonsterList = async () => (await getJson("/monsters")).results;
 export const fetchMonster = (index) => getJson(`/monsters/${index}`);
 export const fetchSpell = (index) => getJson(`/spells/${index}`);
+export const fetchSpellList = async (level) => (await getJson(`/spells?level=${level}`)).results;
 
 const CR_FRACTIONS = { 0.125: "1/8", 0.25: "1/4", 0.5: "1/2" };
 
