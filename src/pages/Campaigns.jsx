@@ -14,6 +14,7 @@ const blank = { name: "", description: "", monsterIds: [] };
 const label = "text-[11px] font-semibold uppercase tracking-[0.18em]";
 const MODE_KEY = "mb:campaignMode";
 const COLS_KEY = "mb:campaignCols";
+const PICK_KEY = "mb:campaignPick"; // which campaign's full stat blocks to show ("all" or a campaign id)
 const COL_CHOICES = [1, 2, 3, 4, 5];
 
 const MODES = [
@@ -38,6 +39,14 @@ const loadCols = () => {
   }
 };
 
+const loadPick = () => {
+  try {
+    return localStorage.getItem(PICK_KEY) ?? "";
+  } catch {
+    return "";
+  }
+};
+
 const dexMod = (dex) => Math.floor((Number(dex) - 10) / 2);
 
 export default function Campaigns() {
@@ -47,6 +56,7 @@ export default function Campaigns() {
   const [form, setForm] = useState(blank);
   const [mode, setMode] = useState(loadMode);
   const [cols, setCols] = useState(loadCols);
+  const [pick, setPick] = useState(loadPick);
   const [dragKey, setDragKey] = useState(null);
   const [overKey, setOverKey] = useState(null);
 
@@ -58,6 +68,15 @@ export default function Campaigns() {
       localStorage.setItem(MODE_KEY, next);
     } catch {
       /* storage unavailable: the mode just won't be remembered */
+    }
+  };
+
+  const choosePick = (value) => {
+    setPick(value);
+    try {
+      localStorage.setItem(PICK_KEY, value);
+    } catch {
+      /* storage unavailable */
     }
   };
 
@@ -192,6 +211,10 @@ export default function Campaigns() {
     patchMember(c, member.key, { cr: cr === base.cr ? undefined : cr });
   };
 
+  // Which campaign's full stat blocks are shown. A saved pick that no longer exists falls back to the first campaign.
+  const activePick = pick === "all" || rows.some((c) => c.id === pick) ? pick : rows[0]?.id ?? "all";
+  const shownRows = activePick === "all" ? rows : rows.filter((c) => c.id === activePick);
+
   // Deleted monsters quietly drop out of a campaign.
   const resolve = (c) =>
     c.members
@@ -253,6 +276,20 @@ export default function Campaigns() {
                 </button>
               ))}
             </div>
+            {mode === "blocks" && rows.length > 1 && (
+              <>
+                <label htmlFor="campaign-pick" className={`${label} ml-4 text-mute`}>Campaign</label>
+                <select
+                  id="campaign-pick"
+                  value={activePick}
+                  onChange={(e) => choosePick(e.target.value)}
+                  className="border border-ink bg-white px-3 py-2.5 text-ink"
+                >
+                  <option value="all">All campaigns</option>
+                  {rows.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </>
+            )}
             {mode === "blocks" && (
               <>
                 <span className={`${label} ml-4 text-mute`}>Cards across</span>
@@ -294,6 +331,7 @@ export default function Campaigns() {
                             : <span className="text-mute">None</span>}
                         </td>
                         <td className={`${cell} whitespace-nowrap`}>
+                          <button onClick={() => { choosePick(c.id); chooseMode("blocks"); }} className="mr-3 font-semibold text-blood hover:underline">Full stats</button>
                           <button onClick={() => startEdit(c)} className="mr-3 hover:text-blood">Edit</button>
                           <button onClick={() => handleDelete(c)} className="text-blood hover:underline">Delete</button>
                         </td>
@@ -305,7 +343,7 @@ export default function Campaigns() {
             </div>
           ) : (
             <div className="space-y-14">
-              {rows.map((c) => {
+              {shownRows.map((c) => {
                 const members = resolve(c);
                 const tracker = c.tracker ?? {};
                 return (

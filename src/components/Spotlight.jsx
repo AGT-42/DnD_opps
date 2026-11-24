@@ -1,4 +1,5 @@
 import { ABILITIES, modifier } from "../utils/constants.js";
+import { isSpellLine } from "../utils/spells.js";
 
 const lines = (text = "") => text.split("\n").filter(Boolean);
 const splitEntry = (line) => {
@@ -15,10 +16,11 @@ function Label({ children, light }) {
 }
 
 // Left: name + next card. Middle (red column): the numbers. Right: description + actions.
-export default function Spotlight({ monster: m, next, onNext, total = 0, index = 0, onSelect, footer, hpSlot, detailed = false }) {
+export default function Spotlight({ monster: m, next, onNext, total = 0, index = 0, onSelect, footer, hpSlot, spellsSlot, detailed = false }) {
   const actions = lines(m.actions).map(splitEntry);
   const shownActions = detailed ? actions : actions.slice(0, 3);
-  const desc = lines(m.description);
+  // when a spell list is shown, leave the raw "1st level (4 slots): ..." lines out of the description
+  const desc = lines(m.description).filter((l) => !(spellsSlot && isSpellLine(l)));
   const shownDesc = detailed ? desc : desc.slice(0, 1);
   const longestWord = Math.max(...m.name.split(/\s+/).map((w) => w.length));
 
@@ -120,6 +122,8 @@ export default function Spotlight({ monster: m, next, onNext, total = 0, index =
               </div>
             ))}
           </div>
+
+          {spellsSlot}
         </div>
       </div>
     </>

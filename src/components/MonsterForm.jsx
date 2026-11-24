@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { SIZES, TYPES, ABILITIES, emptyMonster } from "../utils/constants.js";
 import { CR_LIST, scaleMonster } from "../utils/cr.js";
+import { slotsFor } from "../utils/spells.js";
 
 const input = "w-full border border-line bg-white px-3 py-2 text-ink";
 const NUMERIC = ["ac", "hp", ...ABILITIES];
@@ -15,7 +16,7 @@ function Field({ label, children }) {
 }
 
 export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLabel }) {
-  const [form, setForm] = useState(initial);
+  const [form, setForm] = useState(() => ({ ...initial, spellSlots: slotsFor(initial) }));
   const set = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   // Spell slots: 9 numbers, one per spell level. Older monsters saved before this feature have none.

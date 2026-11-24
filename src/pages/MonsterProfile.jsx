@@ -4,6 +4,8 @@ import NotFound from "./NotFound.jsx";
 import Spotlight from "../components/Spotlight.jsx";
 import HealthTracker from "../components/HealthTracker.jsx";
 import SpellSlotTracker from "../components/SpellSlotTracker.jsx";
+import SpellBook from "../components/SpellBook.jsx";
+import { slotsFor } from "../utils/spells.js";
 import { monsterStore } from "../services/monsterStore.js";
 import { downloadStatBlock } from "../utils/exportStatBlock.js";
 
@@ -40,9 +42,10 @@ export default function MonsterProfile() {
       hpSlot={
         <>
           <HealthTracker key={m.id} scope="solo" monsterId={m.id} maxHp={m.hp} />
-          <SpellSlotTracker key={`${m.id}:${(m.spellSlots || []).join(",")}`} scope="solo" monsterId={m.id} slots={m.spellSlots} />
+          <SpellSlotTracker key={`${m.id}:${slotsFor(m).join(",")}`} scope="solo" monsterId={m.id} slots={slotsFor(m)} />
         </>
       }
+      spellsSlot={<SpellBook key={m.id} scope="solo" monster={m} />}
       footer={
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <button onClick={handleSaveImage} disabled={saving} className={`bg-ink text-paper hover:bg-blood disabled:opacity-50 ${btn}`}>

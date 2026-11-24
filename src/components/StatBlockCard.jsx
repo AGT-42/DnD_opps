@@ -1,7 +1,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import HealthTracker from "./HealthTracker.jsx";
 import SpellSlotTracker from "./SpellSlotTracker.jsx";
+import SpellBook from "./SpellBook.jsx";
 import { ABILITIES, modifier } from "../utils/constants.js";
+import { isSpellLine, slotsFor } from "../utils/spells.js";
 
 const label = "text-[11px] font-semibold uppercase tracking-[0.18em]";
 const lines = (text = "") => text.split("\n").filter(Boolean);
@@ -24,7 +26,7 @@ export default function StatBlockCard({
   const [overflows, setOverflows] = useState(false);
   const bodyRef = useRef(null);
   const actions = lines(m.actions).map(splitEntry);
-  const desc = lines(m.description);
+  const desc = lines(m.description).filter((l) => !isSpellLine(l)); // spell lines are shown by the spell list below
   const changed = baseCr !== m.cr;
 
   // Only offer "See more" if the details block is actually taller than the cut-off.
@@ -110,7 +112,7 @@ export default function StatBlockCard({
         </div>
         <div className="border-t border-white/30 pt-5">
           <HealthTracker key={`${scope}:${m.id}:${m.hp}`} scope={scope} monsterId={m.id} maxHp={m.hp} />
-          <SpellSlotTracker key={`${scope}:${m.id}:${(m.spellSlots || []).join(",")}`} scope={scope} monsterId={m.id} slots={m.spellSlots} />
+          <SpellSlotTracker key={`${scope}:${m.id}:${slotsFor(m).join(",")}`} scope={scope} monsterId={m.id} slots={slotsFor(m)} />
         </div>
       </div>
 
@@ -152,6 +154,8 @@ export default function StatBlockCard({
             {expanded ? "See less" : "See more"}
           </button>
         )}
+
+        <SpellBook scope={scope} monster={m} className="mt-5 border-t border-line pt-5" />
       </div>
 
       <footer className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-5 py-3">

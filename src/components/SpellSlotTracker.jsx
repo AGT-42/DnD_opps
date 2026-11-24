@@ -1,32 +1,18 @@
-import { useState } from "react";
-import { getUsed, setUsed } from "../services/slotStore.js";
+import { useSpellSlots } from "../services/useSpellSlots.js";
+import { ordinal } from "../utils/spells.js";
 
 const label = "text-[11px] font-semibold uppercase tracking-[0.18em]";
 const whiteFocus = { outlineColor: "#fff" }; // default focus ring is red, invisible on the red column
-const ordinal = (n) => ({ 1: "1st", 2: "2nd", 3: "3rd" }[n] ?? `${n}th`);
 
 // Click a filled diamond to spend that slot, click an empty one to get it back.
 // `slots` is an array of 9 numbers: how many slots the monster has at levels 1-9.
 export default function SpellSlotTracker({ scope, monsterId, slots }) {
-  const max = Array.from({ length: 9 }, (_, i) => Math.max(0, Number(slots?.[i]) || 0));
-  const [used, setUsedState] = useState(() => {
-    const saved = getUsed(scope, monsterId);
-    return max.map((m, i) => Math.min(Number(saved[i]) || 0, m)); // never more used than the max
-  });
+  const { max, used, spend, restore, reset } = useSpellSlots(scope, monsterId, slots);
 
   if (max.every((n) => n === 0)) return null; // monster has no spell slots, show nothing
 
-  const update = (next) => {
-    setUsedState(next);
-    setUsed(scope, monsterId, next);
-  };
-
-  const toggle = (level, pip) => {
-    const next = [...used];
-    // pips 0..(max-used-1) are still available; the rest are spent
-    next[level] = pip < max[level] - used[level] ? used[level] + 1 : used[level] - 1;
-    update(next);
-  };
+  // pips 0..(max-used-1) are still available; the rest are spent
+  const toggle = (level, pip) => (pip < max[level] - used[level] ? spend(level) : restore(level));
 
   return (
     <div className="mt-5 border-t border-white/30 pt-5 text-center">
@@ -61,7 +47,7 @@ export default function SpellSlotTracker({ scope, monsterId, slots }) {
 
       <button
         type="button"
-        onClick={() => update(max.map(() => 0))}
+        onClick={reset}
         style={whiteFocus}
         className={`mt-3 text-white/75 underline underline-offset-4 hover:text-white ${label}`}
       >
