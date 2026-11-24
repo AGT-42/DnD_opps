@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import HealthTracker from "./HealthTracker.jsx";
+import SpellSlotTracker from "./SpellSlotTracker.jsx";
 import { ABILITIES, modifier } from "../utils/constants.js";
 
 const label = "text-[11px] font-semibold uppercase tracking-[0.18em]";
@@ -109,6 +110,7 @@ export default function StatBlockCard({
         </div>
         <div className="border-t border-white/30 pt-5">
           <HealthTracker key={`${scope}:${m.id}:${m.hp}`} scope={scope} monsterId={m.id} maxHp={m.hp} />
+          <SpellSlotTracker key={`${scope}:${m.id}:${(m.spellSlots || []).join(",")}`} scope={scope} monsterId={m.id} slots={m.spellSlots} />
         </div>
       </div>
 

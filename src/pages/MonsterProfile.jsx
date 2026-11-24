@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import NotFound from "./NotFound.jsx";
 import Spotlight from "../components/Spotlight.jsx";
 import HealthTracker from "../components/HealthTracker.jsx";
+import SpellSlotTracker from "../components/SpellSlotTracker.jsx";
 import { monsterStore } from "../services/monsterStore.js";
 import { downloadStatBlock } from "../utils/exportStatBlock.js";
 
@@ -36,7 +37,12 @@ export default function MonsterProfile() {
     <Spotlight
       monster={m}
       detailed
-      hpSlot={<HealthTracker key={m.id} scope="solo" monsterId={m.id} maxHp={m.hp} />}
+      hpSlot={
+        <>
+          <HealthTracker key={m.id} scope="solo" monsterId={m.id} maxHp={m.hp} />
+          <SpellSlotTracker key={`${m.id}:${(m.spellSlots || []).join(",")}`} scope="solo" monsterId={m.id} slots={m.spellSlots} />
+        </>
+      }
       footer={
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <button onClick={handleSaveImage} disabled={saving} className={`bg-ink text-paper hover:bg-blood disabled:opacity-50 ${btn}`}>

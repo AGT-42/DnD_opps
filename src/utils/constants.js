@@ -21,4 +21,5 @@ export const emptyMonster = {
   str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10,
   description: "",
   actions: "",
+  spellSlots: [0, 0, 0, 0, 0, 0, 0, 0, 0], // slots per spell level, 1st to 9th
 };

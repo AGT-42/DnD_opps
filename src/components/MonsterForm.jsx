@@ -18,6 +18,14 @@ export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLa
   const [form, setForm] = useState(initial);
   const set = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  // Spell slots: 9 numbers, one per spell level. Older monsters saved before this feature have none.
+  const slots = form.spellSlots ?? Array(9).fill(0);
+  const setSlot = (i, value) => {
+    const next = [...slots];
+    next[i] = value;
+    setForm({ ...form, spellSlots: next });
+  };
+
   // Changing CR re-stats the monster (AC, HP, abilities, to-hit, DCs, damage). Tweak anything afterwards.
   const setCr = (e) => {
     const current = { ...form };
@@ -30,6 +38,7 @@ export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLa
     e.preventDefault();
     const data = { ...form, name: form.name.trim() };
     NUMERIC.forEach((k) => (data[k] = Number(data[k]) || 0));
+    data.spellSlots = slots.map((n) => Math.max(0, Math.min(9, Number(n) || 0)));
     onSubmit(data);
   };
 
@@ -73,6 +82,18 @@ export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLa
           </Field>
         ))}
       </div>
+
+      <fieldset>
+        <legend className="mb-1 block text-sm text-mute">Spell slots per level (leave at 0 if it can't cast)</legend>
+        <div className="grid grid-cols-5 gap-3 sm:grid-cols-9">
+          {slots.map((n, i) => (
+            <label key={i} className="block text-center">
+              <span className="mb-1 block text-xs text-mute">Lv {i + 1}</span>
+              <input type="number" min="0" max="9" value={n} onChange={(e) => setSlot(i, e.target.value)} className={`${input} px-2 text-center`} />
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <Field label="Description">
         <textarea name="description" rows="3" value={form.description} onChange={set} className={input} />
