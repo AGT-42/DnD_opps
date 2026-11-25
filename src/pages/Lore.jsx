@@ -6,7 +6,7 @@ import { npcStore } from "../services/npcStore.js";
 import { campaignStore } from "../services/campaignStore.js";
 import { input, label, btnPrimary, btnOutline, btnSmall } from "../utils/ui.js";
 
-const KINDS = ["City", "Town", "Village", "Region", "Dungeon", "Fortress", "Landmark", "Tavern", "Other"];
+const KINDS = ["City", "Town", "Village", "Region", "Dungeon", "Fortress", "Landmark", "Tavern", "Other", "Diety", "Historical figure","Organization"];
 const blank = { name: "", kind: "City", region: "", ruler: "", campaignId: "", description: "", history: "", secrets: "" };
 
 export default function Lore() {
