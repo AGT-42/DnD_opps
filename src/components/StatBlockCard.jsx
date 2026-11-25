@@ -168,7 +168,7 @@ export default function StatBlockCard({
           </button>
         )}
 
-        <SpellBook scope={scope} monster={m} className="mt-5 border-t border-line pt-5" />
+        <SpellBook scope={scope} monster={m} collapsible className="mt-5 border-t border-line pt-5" />
       </div>
 
       <footer className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-5 py-3">

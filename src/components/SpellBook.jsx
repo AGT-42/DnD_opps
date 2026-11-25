@@ -113,18 +113,34 @@ function SpellDetail({ name, level, monster, remaining, onCast }) {
 
 // Lists the monster's spells as buttons. Click one to read what it does and cast it,
 // which spends a slot (the Spell slots tracker updates at the same time).
-export default function SpellBook({ scope, monster: m, className = "mt-8" }) {
+// With `collapsible`, the spells hide behind a single button (used on the small campaign cards).
+export default function SpellBook({ scope, monster: m, className = "mt-8", collapsible = false }) {
   const groups = parseSpellcasting(m.description);
   const { max, used, spend } = useSpellSlots(scope, m.id, slotsFor(m));
   const [selected, setSelected] = useState(null); // { name, level }
+  const [open, setOpen] = useState(false);
 
   if (groups.length === 0) return null;
 
+  const total = groups.reduce((n, g) => n + g.spells.length, 0);
+
   return (
     <div className={className}>
-      <p className={`${label} text-blood`}>Spells</p>
-      <p className="mt-1 text-sm text-mute">Click a spell to see what it does and cast it.</p>
-      <div className="mt-3 space-y-4">
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          className={`flex w-full items-center justify-between border border-line px-4 py-2 text-ink hover:bg-ink hover:text-paper ${label}`}
+        >
+          <span>{open ? "Hide spells" : "View spells"} ({total})</span>
+          <span aria-hidden>{open ? "▴" : "▾"}</span>
+        </button>
+      ) : (
+        <p className={`${label} text-blood`}>Spells</p>
+      )}
+      {(!collapsible || open) && <p className="mt-3 text-sm text-mute">Click a spell to see what it does and cast it.</p>}
+      <div className={`mt-3 space-y-4 ${collapsible && !open ? "hidden" : ""}`}>
         {groups.map((g) => {
           const left = g.level > 0 ? max[g.level - 1] - used[g.level - 1] : null;
           return (
