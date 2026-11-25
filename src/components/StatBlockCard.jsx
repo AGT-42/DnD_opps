@@ -26,6 +26,7 @@ export default function StatBlockCard({
   const [overflows, setOverflows] = useState(false);
   const bodyRef = useRef(null);
   const actions = lines(m.actions).map(splitEntry);
+  const bonusActions = lines(m.bonusActions).map(splitEntry);
   const desc = lines(m.description).filter((l) => !isSpellLine(l)); // spell lines are shown by the spell list below
   const changed = baseCr !== m.cr;
 
@@ -146,6 +147,18 @@ export default function StatBlockCard({
                 </div>
               ))}
             </div>
+
+            {bonusActions.length > 0 && (
+              <div className="space-y-4 border-t border-line pt-5">
+                <p className={`${label} text-blood`}>Bonus actions</p>
+                {bonusActions.map((a, i) => (
+                  <div key={i}>
+                    <p className="font-display text-lg leading-tight text-ink">{a.name}</p>
+                    {a.desc && <p className="mt-1 text-sm leading-relaxed text-mute">{a.desc}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           {cut && <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-20" style={{ background: "linear-gradient(to top, #fff, rgba(255,255,255,0))" }} />}
         </div>

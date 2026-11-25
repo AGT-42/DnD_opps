@@ -81,6 +81,7 @@ export function scaleMonster(m, newCr) {
     hp: Math.max(1, Math.round((Number(m.hp) * to.hp) / from.hp)),
     description: rewrite(m.description),
     actions: rewrite(m.actions),
+    bonusActions: rewrite(m.bonusActions),
   };
   for (const k of ["str", "dex", "con"]) out[k] = clamp(Number(m[k]) + 2 * modDelta, 1, 30);
   return out;

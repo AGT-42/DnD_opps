@@ -1,12 +1,42 @@
 import { useEffect, useState } from "react";
 import { fetchSpell } from "../services/dndApi.js";
 import { useSpellSlots } from "../services/useSpellSlots.js";
-import { ordinal, parseSpellcasting, slotsFor, spellIndex } from "../utils/spells.js";
+import { casterStats, ordinal, parseSpellcasting, slotsFor, spellIndex, spellRolls } from "../utils/spells.js";
 
 const label = "text-[11px] font-semibold uppercase tracking-[0.18em]";
 const cache = new Map(); // spell id -> spell data, so each spell is only fetched once per visit
 
-function SpellDetail({ name, level, remaining, onCast }) {
+// The red box: everything the DM needs to roll for this spell, already worked out.
+function RollBox({ rolls, level }) {
+  const row = "flex flex-wrap items-baseline gap-x-2";
+  const key = "w-16 shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75";
+  return (
+    <div className="space-y-1.5 bg-blood px-4 py-3 text-white" role="note" aria-label="Rolls for this spell">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75">
+        Roll this{level > 0 ? ` (cast at ${ordinal(level)} level)` : ""}
+      </p>
+      {rolls.attack && (
+        <p className={row}><span className={key}>To hit</span><span className="text-lg font-bold">d20 {rolls.attack}</span></p>
+      )}
+      {rolls.save && (
+        <p className={row}>
+          <span className={key}>Save</span>
+          <span className="text-lg font-bold">DC {rolls.save.dc}{rolls.save.ability ? ` ${rolls.save.ability}` : ""}</span>
+          {rolls.save.onSuccess && <span className="text-sm text-white/85">· {rolls.save.onSuccess}</span>}
+        </p>
+      )}
+      {rolls.damage && (
+        <p className={row}><span className={key}>Damage</span><span className="text-lg font-bold">{rolls.damage}</span></p>
+      )}
+      {rolls.heal && (
+        <p className={row}><span className={key}>Healing</span><span className="text-lg font-bold">{rolls.heal}</span></p>
+      )}
+      {rolls.area && <p className="text-sm text-white/85">Area: {rolls.area}</p>}
+    </div>
+  );
+}
+
+function SpellDetail({ name, level, monster, remaining, onCast }) {
   const id = spellIndex(name);
   const [state, setState] = useState(() => (cache.has(id) ? { status: "ok", spell: cache.get(id) } : { status: "loading" }));
 
@@ -25,6 +55,8 @@ function SpellDetail({ name, level, remaining, onCast }) {
   }, [id]);
 
   const { spell } = state;
+  const rolls = spellRolls(spell, level, monster);
+  const caster = casterStats(monster);
   const meta = spell
     ? [
         spell.level === 0 ? `Cantrip` : `${ordinal(spell.level)}-level`,
@@ -37,8 +69,17 @@ function SpellDetail({ name, level, remaining, onCast }) {
   return (
     <div className="mt-3 space-y-2 border border-line bg-white p-4 text-sm leading-relaxed">
       <p className="font-display text-xl leading-tight text-ink">{name}</p>
+      {rolls && <RollBox rolls={rolls} level={level} />}
       {state.status === "loading" && <p className="text-mute">Loading spell...</p>}
-      {state.status === "error" && <p className="text-mute">Couldn't load this spell from the D&D API (it may not be in the SRD, or you're offline).</p>}
+      {state.status === "error" && (
+        <>
+          <p className="text-mute">Couldn't load this spell from the D&D API (it may not be in the SRD, or you're offline).</p>
+          <p className="bg-blood px-4 py-3 text-white">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75">Its numbers </span>
+            Spell attack d20 {caster.attack >= 0 ? `+${caster.attack}` : caster.attack} · Save DC {caster.dc}
+          </p>
+        </>
+      )}
       {spell && (
         <>
           <p className={`${label} text-blood`}>{meta}</p>
@@ -114,6 +155,7 @@ export default function SpellBook({ scope, monster: m, className = "mt-8" }) {
                   key={selected.name}
                   name={selected.name}
                   level={g.level}
+                  monster={m}
                   remaining={g.level > 0 ? max[g.level - 1] - used[g.level - 1] : 0}
                   onCast={() => spend(g.level - 1)}
                 />

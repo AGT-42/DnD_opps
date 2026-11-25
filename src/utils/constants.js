@@ -21,5 +21,15 @@ export const emptyMonster = {
   str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10,
   description: "",
   actions: "",
+  bonusActions: "",
   spellSlots: [0, 0, 0, 0, 0, 0, 0, 0, 0], // slots per spell level, 1st to 9th
 };
+
+// ---- NPCs, items and players ----
+export const ATTITUDES = ["Ally", "Friendly", "Neutral", "Wary", "Hostile", "Unknown"];
+export const RELATIONS = ["Ally", "Friend", "Patron", "Contact", "Family", "Rival", "Enemy", "Other"];
+export const ITEM_TYPES = [
+  "Weapon", "Armor", "Potion", "Scroll", "Wand", "Ring", "Wondrous item",
+  "Tool", "Gear", "Treasure", "Quest", "Other",
+];
+export const RARITIES = ["Mundane", "Common", "Uncommon", "Rare", "Very rare", "Legendary", "Artifact"];

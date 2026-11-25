@@ -114,12 +114,16 @@ function paint(ctx, m, draw) {
   }
 
   // Actions
-  const actions = lines(m.actions).map(splitEntry);
-  if (actions.length) {
+  const sections = [
+    ["Actions", lines(m.actions).map(splitEntry)],
+    ["Bonus actions", lines(m.bonusActions).map(splitEntry)],
+  ];
+  for (const [title, entries] of sections) {
+    if (!entries.length) continue;
     y += 14;
-    label("Actions", PAD, y);
+    label(title, PAD, y);
     y += 40;
-    for (const a of actions) {
+    for (const a of entries) {
       y = paragraph(a.name.toUpperCase(), PAD, y, `700 26px ${DISPLAY}`, INK, 34);
       if (a.desc) y = paragraph(a.desc, PAD, y + 2, `400 19px ${BODY}`, MUTE, 29);
       y += 22;

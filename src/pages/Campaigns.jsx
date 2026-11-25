@@ -5,6 +5,7 @@ import InitiativeTracker from "../components/InitiativeTracker.jsx";
 import Masonry from "../components/Masonry.jsx";
 import { campaignStore, newKey } from "../services/campaignStore.js";
 import { monsterStore } from "../services/monsterStore.js";
+import { playerStore } from "../services/playerStore.js";
 import { setHp } from "../services/hpStore.js";
 import { CR_LIST, scaleMonster } from "../utils/cr.js";
 
@@ -51,6 +52,7 @@ const dexMod = (dex) => Math.floor((Number(dex) - 10) / 2);
 
 export default function Campaigns() {
   const monsters = monsterStore.all();
+  const players = playerStore.all();
   const [rows, setRows] = useState(campaignStore.all);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(blank);
@@ -122,6 +124,7 @@ export default function Campaigns() {
   const handleDelete = (c) => {
     if (!window.confirm(`Delete campaign "${c.name}"?`)) return;
     campaignStore.remove(c.id);
+    playerStore.forgetCampaign(c.id); // its players become ungrouped
     refresh();
     if (editingId === c.id) reset();
   };
@@ -314,7 +317,7 @@ export default function Campaigns() {
             <div className="overflow-x-auto border border-line">
               <table className="w-full text-left">
                 <thead className="bg-ink text-paper">
-                  <tr>{["Name", "Description", "Monsters", "Actions"].map((h) => <th key={h} className={`${cell} font-bold`}>{h}</th>)}</tr>
+                  <tr>{["Name", "Description", "Players", "Monsters", "Actions"].map((h) => <th key={h} className={`${cell} font-bold`}>{h}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-line">
                   {rows.map((c) => {
@@ -323,6 +326,9 @@ export default function Campaigns() {
                       <tr key={c.id}>
                         <td className={`${cell} text-ink`}>{c.name}</td>
                         <td className={cell}>{c.description || <span className="text-mute">-</span>}</td>
+                        <td className={cell}>
+                          {players.filter((p) => p.campaignId === c.id).map((p) => p.name).join(", ") || <span className="text-mute">None</span>}
+                        </td>
                         <td className={cell}>
                           {members.length
                             ? members.map((r, i) => (
@@ -352,6 +358,11 @@ export default function Campaigns() {
                       <div>
                         <h2 className="font-display text-4xl text-ink">{c.name}</h2>
                         {c.description && <p className="mt-1 text-mute">{c.description}</p>}
+                        {players.some((p) => p.campaignId === c.id) && (
+                          <p className="mt-1 text-sm text-mute">
+                            Party: {players.filter((p) => p.campaignId === c.id).map((p) => p.name).join(", ")}
+                          </p>
+                        )}
                       </div>
                       <div className="whitespace-nowrap">
                         <button onClick={() => startEdit(c)} className="mr-4 hover:text-blood">Edit</button>

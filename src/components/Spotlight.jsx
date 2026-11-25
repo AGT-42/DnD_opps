@@ -19,6 +19,8 @@ function Label({ children, light }) {
 export default function Spotlight({ monster: m, next, onNext, total = 0, index = 0, onSelect, footer, hpSlot, spellsSlot, detailed = false }) {
   const actions = lines(m.actions).map(splitEntry);
   const shownActions = detailed ? actions : actions.slice(0, 3);
+  const bonusActions = lines(m.bonusActions).map(splitEntry);
+  const shownBonus = detailed ? bonusActions : bonusActions.slice(0, 2);
   // when a spell list is shown, leave the raw "1st level (4 slots): ..." lines out of the description
   const desc = lines(m.description).filter((l) => !(spellsSlot && isSpellLine(l)));
   const shownDesc = detailed ? desc : desc.slice(0, 1);
@@ -117,6 +119,13 @@ export default function Spotlight({ monster: m, next, onNext, total = 0, index =
             {shownActions.map((a, i) => (
               <div key={i}>
                 <Label>Action</Label>
+                <p className="line-clamp-2 font-display text-2xl leading-tight">{a.name}</p>
+                {detailed && a.desc && <p className="mt-1 text-sm leading-relaxed text-mute">{a.desc}</p>}
+              </div>
+            ))}
+            {shownBonus.map((a, i) => (
+              <div key={`bonus-${i}`}>
+                <Label>Bonus action</Label>
                 <p className="line-clamp-2 font-display text-2xl leading-tight">{a.name}</p>
                 {detailed && a.desc && <p className="mt-1 text-sm leading-relaxed text-mute">{a.desc}</p>}
               </div>

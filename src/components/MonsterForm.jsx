@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { SIZES, TYPES, ABILITIES, emptyMonster } from "../utils/constants.js";
 import { CR_LIST, scaleMonster } from "../utils/cr.js";
 import { slotsFor, parseSpellcasting, ordinal } from "../utils/spells.js";
@@ -7,27 +7,50 @@ import { fetchSpellList } from "../services/dndApi.js";
 const input = "w-full border border-line bg-white px-3 py-2 text-ink";
 const NUMERIC = ["ac", "hp", ...ABILITIES];
 
-function Field({ label, children }) {
+// Spell lines ("Cantrips (at will): ...", "1st level (4 slots): ...") are managed by the spell picker,
+// so they are kept out of the description box and added back when the monster is saved.
+const SPELL_LINE = /^\s*(cantrips|\d(?:st|nd|rd|th)[ -]level)\s*\(/i;
+const withoutSpellLines = (text = "") =>
+  text.split("\n").filter((line) => !SPELL_LINE.test(line)).join("\n").trim();
+
+const spellLines = (groups, slots) =>
+  groups
+    .filter((g) => g.spells.length > 0)
+    .map((g) =>
+      g.level === 0
+        ? `Cantrips (at will): ${g.spells.join(", ")}`
+        : `${ordinal(g.level)} level (${slots[g.level - 1] || 0} slots): ${g.spells.join(", ")}`
+    );
+
+const levelName = (level) => (level === 0 ? "Cantrips" : ordinal(level));
+const noSpinner = "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+
+function Field({ label, hint, children }) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm text-mute">{label}</span>
       {children}
+      {hint && <span className="mt-1 block text-xs text-mute">{hint}</span>}
     </label>
   );
 }
 
-const spellLevelName = (level) => level === 0 ? "Cantrips" : `${ordinal(level)}-level spells`;
-
 export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLabel }) {
-  const [form, setForm] = useState(() => ({ ...initial, spellSlots: slotsFor(initial) }));
+  const [form, setForm] = useState(() => ({
+    ...initial,
+    bonusActions: initial.bonusActions ?? "",
+    description: withoutSpellLines(initial.description),
+    spellSlots: slotsFor(initial),
+  }));
+  // One entry per spell level; index === level (0 = cantrips).
   const [spellGroups, setSpellGroups] = useState(() => {
-    const groups = Array.from({ length: 10 }, (_, level) => ({
+    const parsed = parseSpellcasting(initial.description);
+    return Array.from({ length: 10 }, (_, level) => ({
       level,
-      spells: parseSpellcasting(initial.description).find((group) => group.level === level)?.spells ?? [],
+      spells: parsed.find((group) => group.level === level)?.spells ?? [],
     }));
-    return groups;
   });
-  const [openLevel, setOpenLevel] = useState(null);
+  const [activeLevel, setActiveLevel] = useState(null);
   const [spellSearch, setSpellSearch] = useState("");
   const [spellLists, setSpellLists] = useState({});
   const [loadingLevel, setLoadingLevel] = useState(null);
@@ -43,8 +66,19 @@ export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLa
     setForm({ ...form, spellSlots: next });
   };
 
-  const openSpellPicker = async (level) => {
-    setOpenLevel(level);
+  // Tabs: cantrips always, plus any level that has slots or already has spells chosen.
+  const tabLevels = [0, ...Array.from({ length: 9 }, (_, i) => i + 1).filter(
+    (level) => Number(slots[level - 1]) > 0 || spellGroups[level].spells.length > 0
+  )];
+  const open = tabLevels.includes(activeLevel) ? activeLevel : null;
+  const hasLeveledTabs = tabLevels.length > 1;
+
+  const selectLevel = async (level) => {
+    if (open === level) {
+      setActiveLevel(null);
+      return;
+    }
+    setActiveLevel(level);
     setSpellSearch("");
     setSpellError("");
     if (spellLists[level]) return;
@@ -55,7 +89,7 @@ export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLa
     } catch {
       setSpellError("Couldn't load the spell list. Check your connection and try again.");
     } finally {
-      setLoadingLevel(null);
+      setLoadingLevel((current) => (current === level ? null : current));
     }
   };
 
@@ -70,26 +104,6 @@ export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLa
     }));
   };
 
-  const removeSpell = (spellName, level) => toggleSpell(spellName, level);
-  useEffect(() => {
-  const ordinaryDescription = (form.description || "")
-    .split("\n")
-    .filter((line) => !/^\s*(cantrips|\d(?:st|nd|rd|th)[ -]level)\s*\(/i.test(line))
-    .join("\n")
-    .trim();
-
-  const spellLines = spellGroups
-    .filter((group) => group.spells.length > 0)
-    .map((group) => group.level === 0
-      ? `Cantrips (at will): ${group.spells.join(", ")}`
-      : `${ordinal(group.level)} level (${slots[group.level - 1] || 0} slots): ${group.spells.join(", ")}`);
-
-  setForm((current) => ({
-    ...current,
-    description: [ordinaryDescription, ...spellLines].filter(Boolean).join("\n")
-  }));
-}, [spellGroups, form.spellSlots]);
-
   // Changing CR re-stats the monster (AC, HP, abilities, to-hit, DCs, damage). Tweak anything afterwards.
   const setCr = (e) => {
     const current = { ...form };
@@ -103,21 +117,17 @@ export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLa
     const data = { ...form, name: form.name.trim() };
     NUMERIC.forEach((k) => (data[k] = Number(data[k]) || 0));
     data.spellSlots = slots.map((n) => Math.max(0, Math.min(9, Number(n) || 0)));
-
-    // Keep ordinary description text, then save the selected spells in the format SpellBook already reads.
-    const ordinaryDescription = (form.description || "")
-      .split("\n")
-      .filter((line) => !/^\s*(cantrips|\d(?:st|nd|rd|th)[ -]level)\s*\(/i.test(line))
-      .join("\n")
-      .trim();
-    const spellLines = spellGroups
-      .filter((group) => group.spells.length > 0)
-      .map((group) => group.level === 0
-        ? `Cantrips (at will): ${group.spells.join(", ")}`
-        : `${ordinal(group.level)} level (${data.spellSlots[group.level - 1] || 0} slots): ${group.spells.join(", ")}`);
-    data.description = [ordinaryDescription, ...spellLines].filter(Boolean).join("\n");
+    // Ordinary description text first, then the chosen spells in the format SpellBook reads.
+    data.description = [withoutSpellLines(form.description), ...spellLines(spellGroups, data.spellSlots)]
+      .filter(Boolean)
+      .join("\n");
     onSubmit(data);
   };
+
+  const chosen = spellGroups.filter((g) => g.spells.length > 0);
+  const options = open === null
+    ? []
+    : (spellLists[open] ?? []).filter((spell) => spell.name.toLowerCase().includes(spellSearch.toLowerCase()));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -160,109 +170,136 @@ export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLa
         ))}
       </div>
 
-      <fieldset className="space-y-3">
+      <fieldset className="max-w-3xl space-y-5">
         <legend className="mb-1 block text-sm text-mute">Spell slots and spells</legend>
 
-        {/* Cantrips do not use spell slots, so keep their picker in a small separate row. */}
-        {spellGroups[0] && (
-          <div className="flex flex-wrap items-start gap-2">
-            <div className="min-w-36">
-              <p className="mb-1 text-center text-xs text-mute">Cantrips</p>
-              <button
-                type="button"
-                onClick={() => openLevel === 0 ? setOpenLevel(null) : openSpellPicker(0)}
-                className="w-full border border-blood px-2 py-1.5 text-xs font-semibold text-blood hover:bg-blood hover:text-white"
-              >
-                {openLevel === 0 ? "Close list" : "+ Add Spell"}
-              </button>
-              {spellGroups[0].spells.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {spellGroups[0].spells.map((spell) => (
-                    <span key={spell} className="inline-flex items-center gap-1 border border-line bg-paper px-1.5 py-1 text-xs text-ink">
-                      {spell}
-                      <button type="button" onClick={() => removeSpell(spell, 0)} aria-label={`Remove ${spell}`} className="font-bold text-blood">×</button>
-                    </span>
-                  ))}
+        {/* 1. How many slots at each level */}
+        <div>
+          <p className="mb-1.5 text-xs text-mute">Spell slots per level</p>
+          <div className="grid grid-cols-5 gap-2 sm:grid-cols-9">
+            {Array.from({ length: 9 }, (_, i) => (
+              <label key={i} className="block">
+                <span className="mb-1 block text-center text-xs text-mute">{ordinal(i + 1)}</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="9"
+                  value={slots[i]}
+                  onChange={(e) => setSlot(i, e.target.value)}
+                  aria-label={`${ordinal(i + 1)}-level spell slots`}
+                  className={`${input} px-1 text-center ${noSpinner}`}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* 2. Pick a level, then add spells to it */}
+        <div>
+          <p className="mb-1.5 text-xs text-mute">Add spells (pick a level)</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {tabLevels.map((level) => {
+              const count = spellGroups[level].spells.length;
+              const active = open === level;
+              return (
+                <button
+                  key={level}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => selectLevel(level)}
+                  className={`border px-3 py-1.5 text-xs font-semibold ${
+                    active ? "border-ink bg-ink text-paper" : "border-line bg-white text-ink hover:border-blood hover:text-blood"
+                  }`}
+                >
+                  {levelName(level)}
+                  {count > 0 && <span className={`ml-1.5 ${active ? "text-paper/70" : "text-blood"}`}>{count}</span>}
+                </button>
+              );
+            })}
+            {!hasLeveledTabs && <span className="text-xs text-mute">Give it spell slots above to add leveled spells.</span>}
+          </div>
+
+          {open !== null && (
+            <div className="mt-2 space-y-2 border border-line bg-paper p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-ink">
+                  {open === 0 ? "Cantrips (at will)" : `${ordinal(open)}-level spells`}
+                </p>
+                <button type="button" onClick={() => setActiveLevel(null)} className="text-xs font-semibold text-mute hover:text-ink">
+                  Close
+                </button>
+              </div>
+              <input
+                type="search"
+                value={spellSearch}
+                onChange={(e) => setSpellSearch(e.target.value)}
+                placeholder="Search spells..."
+                className={`${input} max-w-xs py-1.5 text-sm`}
+              />
+              {loadingLevel === open && <p className="text-xs text-mute">Loading spells...</p>}
+              {spellError && <p className="text-xs text-blood">{spellError}</p>}
+              {loadingLevel !== open && !spellError && (
+                <div className="grid max-h-56 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                  {options.map((spell) => {
+                    const selected = spellGroups[open].spells.includes(spell.name);
+                    return (
+                      <button
+                        type="button"
+                        key={spell.index}
+                        aria-pressed={selected}
+                        onClick={() => toggleSpell(spell.name, open)}
+                        className={`flex items-center justify-between gap-2 border px-2 py-1.5 text-left text-xs ${
+                          selected ? "border-blood bg-white text-blood" : "border-line bg-white text-ink hover:border-blood"
+                        }`}
+                      >
+                        <span>{spell.name}</span>
+                        <span className="shrink-0">{selected ? "✓" : "+"}</span>
+                      </button>
+                    );
+                  })}
+                  {options.length === 0 && <p className="text-xs text-mute">No spells found.</p>}
                 </div>
               )}
             </div>
-            {openLevel === 0 && (
-              <div className="min-w-48 flex-1 space-y-1">
-                <input type="search" value={spellSearch} onChange={(e) => setSpellSearch(e.target.value)} placeholder="Search cantrips..." className={`${input} py-1 text-sm`} />
-                {loadingLevel === 0 && <p className="text-xs text-mute">Loading spells...</p>}
-                {spellError && <p className="text-xs text-blood">{spellError}</p>}
-                {!loadingLevel && !spellError && (spellLists[0] ?? []).filter((spell) => spell.name.toLowerCase().includes(spellSearch.toLowerCase())).map((spell) => {
-                  const selected = spellGroups[0].spells.includes(spell.name);
-                  return <button type="button" key={spell.index} onClick={() => toggleSpell(spell.name, 0)} className={`flex w-full justify-between border px-2 py-1 text-left text-xs ${selected ? "border-blood bg-paper text-blood" : "border-line text-ink hover:border-blood"}`}><span>{spell.name}</span><span>{selected ? "✓" : "+ Add"}</span></button>;
-                })}
+          )}
+        </div>
+
+        {/* 3. What's been chosen so far */}
+        {chosen.length > 0 && (
+          <div className="space-y-2 border-t border-line pt-4">
+            <p className="text-xs text-mute">Chosen spells</p>
+            {chosen.map((group) => (
+              <div key={group.level} className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                <span className="w-16 shrink-0 pt-1 text-xs font-semibold text-ink">{levelName(group.level)}</span>
+                <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                  {group.spells.map((spell) => (
+                    <span key={spell} className="inline-flex items-center gap-1.5 border border-line bg-paper px-2 py-1 text-xs text-ink">
+                      {spell}
+                      <button
+                        type="button"
+                        onClick={() => toggleSpell(spell, group.level)}
+                        aria-label={`Remove ${spell}`}
+                        className="font-bold text-blood"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
-
-        {/* Keep all nine spell-slot controls compact and side-by-side. The Add Spell
-            button appears directly below a level only when that level has slots. */}
-        <div
-  className="grid gap-x-2 gap-y-3"
-  style={{ gridTemplateColumns: "repeat(9, minmax(0, 1fr))" }}
->
-          {spellGroups.filter((group) => group.level > 0).map((group) => {
-            const level = group.level;
-            const isOpen = openLevel === level;
-            const hasSlots = Number(slots[level - 1]) > 0;
-            const availableSpells = (spellLists[level] ?? []).filter((spell) => spell.name.toLowerCase().includes(spellSearch.toLowerCase()));
-            return (
-              <div key={level} className="min-w-0">
-                <label className="block">
-                  <span className="mb-1 block text-center text-xs text-mute">Lv {level}</span>
-                  <input type="number" min="0" max="9" value={slots[level - 1]} onChange={(e) => setSlot(level - 1, e.target.value)} className={`${input} px-1 py-2 text-center`} />
-                </label>
-                {hasSlots && (
-                  <button
-                    type="button"
-                    onClick={() => isOpen ? setOpenLevel(null) : openSpellPicker(level)}
-                    className="mt-1 w-full border border-blood px-1 py-1 text-xs font-semibold text-blood hover:bg-blood hover:text-white"
-                  >
-                    {isOpen ? "Close" : "+ Add Spell"}
-                  </button>
-                )}
-                {group.spells.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {group.spells.map((spell) => (
-                      <span key={spell} className="inline-flex max-w-full items-center gap-1 border border-line bg-paper px-1 py-0.5 text-[11px] text-ink">
-                        <span className="break-words">{spell}</span>
-                        <button type="button" onClick={() => removeSpell(spell, level)} aria-label={`Remove ${spell}`} className="shrink-0 font-bold text-blood">×</button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {isOpen && (
-                  <div className="mt-1 space-y-1">
-                    <input type="search" value={spellSearch} onChange={(e) => setSpellSearch(e.target.value)} placeholder="Search..." className={`${input} px-1 py-1 text-xs`} />
-                    {loadingLevel === level && <p className="text-[11px] text-mute">Loading...</p>}
-                    {spellError && <p className="text-[11px] text-blood">{spellError}</p>}
-                    {!loadingLevel && !spellError && (
-                      <div className="max-h-40 overflow-y-auto border border-line bg-white">
-                        {availableSpells.map((spell) => {
-                          const selected = group.spells.includes(spell.name);
-                          return <button type="button" key={spell.index} onClick={() => toggleSpell(spell.name, level)} className={`flex w-full justify-between gap-1 border-b border-line px-1 py-1 text-left text-[11px] ${selected ? "bg-paper text-blood" : "text-ink hover:bg-paper"}`}><span>{spell.name}</span><span>{selected ? "✓" : "+"}</span></button>;
-                        })}
-                        {availableSpells.length === 0 && <p className="p-1 text-[11px] text-mute">No spells found.</p>}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
       </fieldset>
 
       <Field label="Description">
         <textarea name="description" rows="3" value={form.description} onChange={set} className={input} />
       </Field>
-      <Field label="Actions (one per line)">
+      <Field label="Actions (one per line)" hint="Write each as: Name. What it does.">
         <textarea name="actions" rows="4" value={form.actions} onChange={set} className={input} />
+      </Field>
+      <Field label="Bonus actions (one per line)" hint="Same format, e.g. Nimble Escape. Takes the Disengage or Hide action.">
+        <textarea name="bonusActions" rows="3" value={form.bonusActions} onChange={set} className={input} />
       </Field>
 
       <button className=" bg-blood text-white px-5 py-2 text-lg font-bold hover:brightness-110">{submitLabel}</button>

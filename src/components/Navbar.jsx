@@ -15,7 +15,12 @@ export default function Navbar() {
           <NavLink to="/" end className={link}>Home</NavLink>
           <NavLink to="/bestiary" className={link}>Gallery</NavLink>
           <NavLink to="/campaigns" className={link}>Campaigns</NavLink>
+          <NavLink to="/players" className={link}>Players</NavLink>
+          <NavLink to="/npcs" className={link}>NPCs</NavLink>
+          <NavLink to="/items" className={link}>Items</NavLink>
+          <NavLink to="/lore" className={link}>Lore</NavLink>
           <NavLink to="/import" className={link}>Import</NavLink>
+          <NavLink to="/backup" className={link}>Backup</NavLink>
         </div>
 
         <Link to="/monsters/new" className={cta}>Create monster</Link>

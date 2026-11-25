@@ -48,5 +48,6 @@ export const toLocalMonster = (api) => ({
   cha: api.charisma,
   description: joinEntries(api.special_abilities),
   actions: joinEntries(api.actions),
+  bonusActions: "", // the SRD data has no separate bonus-action list
   spellSlots: slotsFromApi(api, joinEntries(api.special_abilities)),
 });
