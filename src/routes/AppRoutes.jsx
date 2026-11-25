@@ -11,6 +11,7 @@ import Items from "../pages/Items.jsx";
 import Players from "../pages/Players.jsx";
 import Backup from "../pages/Backup.jsx";
 import Lore from "../pages/Lore.jsx";
+import Rules from "../pages/Rules.jsx";
 import NotFound from "../pages/NotFound.jsx";
 
 export default function AppRoutes() {
@@ -27,6 +28,7 @@ export default function AppRoutes() {
       <Route path="/npcs" element={<Npcs />} />
       <Route path="/items" element={<Items />} />
       <Route path="/lore" element={<Lore />} />
+      <Route path="/rules" element={<Rules />} />
       <Route path="/backup" element={<Backup />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
