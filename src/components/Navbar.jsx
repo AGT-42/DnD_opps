@@ -11,7 +11,9 @@ export default function Navbar() {
     <div className="bg-blood-deep/95">
     <header className="relative z-10">
       <nav className="grid items-center gap-y-4 px-6 py-6 sm:px-10 lg:grid-cols-[1fr_auto_1fr] 2xl:px-16">
+        <span className="text-paper [text-shadow:0_0_8px_#f87171,0_0_20px_#ef4444,0_0_35px_#dc2626]">
         <Link to="/" className="font-display text-2xl leading-none max-lg:text-center">D&D DM KIT</Link>
+        </span>
 
         <div className="flex flex-wrap justify-center gap-x-7 gap-y-2">
           <NavLink to="/" end className={link}>Home</NavLink>
