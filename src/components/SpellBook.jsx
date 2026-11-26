@@ -1,14 +1,29 @@
 import { useEffect, useState } from "react";
 import { fetchSpell } from "../services/dndApi.js";
 import { useSpellSlots } from "../services/useSpellSlots.js";
-import { casterStats, ordinal, parseSpellcasting, slotsFor, spellIndex, spellRolls } from "../utils/spells.js";
+import { casterStats, diceAverage, ordinal, parseSpellcasting, rollDice, slotsFor, spellIndex, spellRolls } from "../utils/spells.js";
 
 const label = "text-[11px] font-semibold uppercase tracking-[0.18em]";
 const cache = new Map(); // spell id -> spell data, so each spell is only fetched once per visit
 
 // The red box: everything the DM needs to roll for this spell, already worked out.
 function RollBox({ rolls, level }) {
+  const [results, setResults] = useState({}); // { damage, heal }: what the Roll buttons last produced
   const row = "flex flex-wrap items-baseline gap-x-2";
+  const rollBtn = "border border-white/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] hover:bg-white/15";
+  // Rolls `dice` `count` times (a separate roll per magic missile dart or scorching ray).
+  const roll = (kind, dice, count) => {
+    const hits = Array.from({ length: count }, () => rollDice(dice));
+    setResults((r) => ({ ...r, [kind]: { total: hits.reduce((n, h) => n + h.total, 0), hits } }));
+  };
+  const outcome = (r) =>
+    r && (
+      <p className="w-full text-sm">
+        <span className="text-lg font-bold">= {r.total}</span>{" "}
+        <span className="text-white/85">({r.hits.map((h) => h.text).join(" | ")})</span>
+      </p>
+    );
+  const avg = (dice, count) => Math.round(diceAverage(dice) * count * 10) / 10;
   const key = "w-16 shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75";
   return (
     <div className="space-y-1.5 bg-blood px-4 py-3 text-white" role="note" aria-label="Rolls for this spell">
@@ -26,17 +41,34 @@ function RollBox({ rolls, level }) {
         </p>
       )}
       {rolls.damage && (
-        <p className={row}><span className={key}>Damage</span><span className="text-lg font-bold">{rolls.damage}</span></p>
+        <>
+          <p className={row}>
+            <span className={key}>Damage</span>
+            <span className="text-lg font-bold">{rolls.damage}</span>
+            {rolls.damageDice && <span className="text-sm text-white/85">· avg {avg(rolls.damageDice, rolls.damageCount)}</span>}
+            {rolls.damageDice && <button type="button" onClick={() => roll("damage", rolls.damageDice, rolls.damageCount)} className={`ml-auto ${rollBtn}`}>{results.damage ? "Reroll" : "Roll"}</button>}
+          </p>
+          {outcome(results.damage)}
+        </>
       )}
       {rolls.heal && (
-        <p className={row}><span className={key}>Healing</span><span className="text-lg font-bold">{rolls.heal}</span></p>
+        <>
+          <p className={row}>
+            <span className={key}>Healing</span>
+            <span className="text-lg font-bold">{rolls.heal}</span>
+            <span className="text-sm text-white/85">· avg {avg(rolls.healDice, 1)}</span>
+            <button type="button" onClick={() => roll("heal", rolls.healDice, 1)} className={`ml-auto ${rollBtn}`}>{results.heal ? "Reroll" : "Roll"}</button>
+          </p>
+          {outcome(results.heal)}
+        </>
       )}
       {rolls.area && <p className="text-sm text-white/85">Area: {rolls.area}</p>}
     </div>
   );
 }
 
-function SpellDetail({ name, level, monster, remaining, onCast }) {
+function SpellDetail({ name, level, monster, max, used, onCast }) {
+  const [castLevel, setCastLevel] = useState(level); // slot level it is cast with (can be higher than the spell's own)
   const id = spellIndex(name);
   const [state, setState] = useState(() => (cache.has(id) ? { status: "ok", spell: cache.get(id) } : { status: "loading" }));
 
@@ -55,7 +87,12 @@ function SpellDetail({ name, level, monster, remaining, onCast }) {
   }, [id]);
 
   const { spell } = state;
-  const rolls = spellRolls(spell, level, monster);
+  const rolls = spellRolls(spell, castLevel, monster);
+  const left = (l) => max[l - 1] - used[l - 1];
+  const remaining = castLevel > 0 ? left(castLevel) : 0;
+  // Slot levels it can be cast at: its own level and up, wherever this creature has slots.
+  const base = Math.max(1, Math.min(level, spell?.level ?? level));
+  const castLevels = Array.from({ length: 10 - base }, (_, i) => base + i).filter((l) => max[l - 1] > 0 || l === level);
   const caster = casterStats(monster);
   const meta = spell
     ? [
@@ -69,7 +106,24 @@ function SpellDetail({ name, level, monster, remaining, onCast }) {
   return (
     <div className="mt-3 space-y-2 border border-line bg-white p-4 text-sm leading-relaxed">
       <p className="font-display text-xl leading-tight text-ink">{name}</p>
-      {rolls && <RollBox rolls={rolls} level={level} />}
+      {level > 0 && castLevels.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`${label} text-mute`}>Cast at</span>
+          {castLevels.map((l) => (
+            <button
+              key={l}
+              type="button"
+              aria-pressed={castLevel === l}
+              onClick={() => setCastLevel(l)}
+              title={`${ordinal(l)}-level slot, ${left(l)} left`}
+              className={`h-9 min-w-11 border px-2 ${label} ${castLevel === l ? "border-ink bg-ink text-paper" : "border-line text-ink hover:border-blood hover:text-blood"}`}
+            >
+              {ordinal(l)}
+            </button>
+          ))}
+        </div>
+      )}
+      {rolls && <RollBox key={`${name}:${castLevel}`} rolls={rolls} level={castLevel} />}
       {state.status === "loading" && <p className="text-mute">Loading spell...</p>}
       {state.status === "error" && (
         <>
@@ -100,11 +154,11 @@ function SpellDetail({ name, level, monster, remaining, onCast }) {
       ) : (
         <button
           type="button"
-          onClick={onCast}
+          onClick={() => onCast(castLevel - 1)}
           disabled={remaining <= 0}
           className={`bg-blood px-4 py-2 text-white hover:brightness-110 disabled:opacity-40 ${label}`}
         >
-          {remaining > 0 ? `Cast (uses a ${ordinal(level)}-level slot, ${remaining} left)` : `No ${ordinal(level)}-level slots left`}
+          {remaining > 0 ? `Cast (uses a ${ordinal(castLevel)}-level slot, ${remaining} left)` : `No ${ordinal(castLevel)}-level slots left`}
         </button>
       )}
     </div>
@@ -172,8 +226,9 @@ export default function SpellBook({ scope, monster: m, className = "mt-8", colla
                   name={selected.name}
                   level={g.level}
                   monster={m}
-                  remaining={g.level > 0 ? max[g.level - 1] - used[g.level - 1] : 0}
-                  onCast={() => spend(g.level - 1)}
+                  max={max}
+                  used={used}
+                  onCast={spend}
                 />
               )}
             </div>

@@ -121,7 +121,6 @@ export default function GroupBoard({ groupKey, rows, shown, filtering, emptyText
         grid(shown)
       ) : (
         <>
-          {ungrouped.length > 0 && ungroupedSection}
           {visibleGroups.map((g) => {
             const items = itemsIn(g.id);
             const groupDragging = dnd.drag?.kind === "group" && dnd.drag.id === g.id;
@@ -164,7 +163,7 @@ export default function GroupBoard({ groupKey, rows, shown, filtering, emptyText
               </div>
             );
           })}
-          {ungrouped.length === 0 && showUngrouped && ungroupedSection}
+          {showUngrouped && ungroupedSection}
         </>
       )}
     </div>

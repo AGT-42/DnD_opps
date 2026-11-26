@@ -71,7 +71,7 @@ export default function StatBlockCard({
       {...dropProps}
       data-drag-image
       className={`flex flex-col border bg-white shadow-[0_18px_40px_-24px_rgba(0,0,0,0.35)] ${
-        active ? "border-ink outline outline-4 outline-ink" : dropTarget ? "border-blood outline-dashed outline-4 outline-blood" : "border-line"
+        active ? "border-ink  outline-4 outline-ink" : dropTarget ? "border-blood outline-dashed outline-4 outline-blood" : "border-line"
       } ${dragging ? "opacity-40" : ""}`}
     >
       {/* Grab bar: drag this to move the card */}

@@ -77,6 +77,54 @@ const pickAt = (table, level) => {
   return table[String(key)];
 };
 
+// ---- Dice maths: "8d6", "1d4 + 1", "2d8 + 3" ----
+const TERM = /([+-]?)\s*(\d+)(?:d(\d+))?/g;
+
+export function diceAverage(expr = "") {
+  let sum = 0;
+  for (const t of expr.matchAll(TERM)) {
+    const sign = t[1] === "-" ? -1 : 1;
+    sum += sign * (t[3] ? (Number(t[2]) * (Number(t[3]) + 1)) / 2 : Number(t[2]));
+  }
+  return sum;
+}
+
+// Rolls the expression once. Returns { total, text } where text shows each die, e.g. "4 + 2 + 6 + 1".
+export function rollDice(expr = "") {
+  let total = 0;
+  const parts = [];
+  for (const t of expr.matchAll(TERM)) {
+    const sign = t[1] === "-" ? -1 : 1;
+    const rolls = t[3] ? Array.from({ length: Number(t[2]) }, () => 1 + Math.floor(Math.random() * Number(t[3]))) : [Number(t[2])];
+    rolls.forEach((v) => {
+      total += sign * v;
+      parts.push({ sign, v });
+    });
+  }
+  const text = parts.map((p, i) => (i === 0 ? `${p.sign < 0 ? "-" : ""}${p.v}` : `${p.sign < 0 ? "-" : "+"} ${p.v}`)).join(" ");
+  return { total, text };
+}
+
+// "8d6" + 3 more "1d6" -> "11d6" (or "8d6 + 3d4" when the dice differ).
+const addDice = (base, extra, times) => {
+  const e = extra.match(/(\d+)d(\d+)/);
+  const b = base.match(/^\s*(\d+)d(\d+)(.*)$/);
+  const n = Number(e[1]) * times;
+  return b && b[2] === e[2] ? `${Number(b[1]) + n}d${b[2]}${b[3]}` : `${base} + ${n}d${e[2]}`;
+};
+
+// For spells whose API entry has no damage table: read the dice from the spell text instead
+// ("takes 8d6 fire damage" ... "increases by 1d6 for each slot level above 3rd").
+function damageFromText(spell, level) {
+  const base = (spell.desc ?? []).join(" ").match(/(\d+d\d+(?:\s*[+-]\s*\d+)?)\s+([a-z]+)\s+damage/i);
+  if (!base) return null;
+  let dice = base[1];
+  const up = (spell.higher_level ?? []).join(" ").match(/(\d+d\d+)[^.]*?for each slot level above/i);
+  const steps = level - (spell.level ?? level);
+  if (up && steps > 0) dice = addDice(dice, up[1], steps);
+  return { dice, type: base[2].toLowerCase() };
+}
+
 const MULTI = { "magic-missile": ["dart", (l) => l + 2], "scorching-ray": ["ray", (l) => l + 1] }; // spells that fire several separate hits
 
 // What to roll for `spell` when cast at `level` by monster `m`. Returns null if the spell has nothing to roll.
@@ -97,17 +145,25 @@ export function spellRolls(spell, level, m) {
   }
 
   const dmg = spell.damage;
-  const dice = pickAt(dmg?.damage_at_slot_level, level) ?? pickAt(dmg?.damage_at_character_level, c.casterLevel);
+  let dice = pickAt(dmg?.damage_at_slot_level, level) ?? pickAt(dmg?.damage_at_character_level, c.casterLevel);
+  let type = dmg?.damage_type?.name?.toLowerCase() ?? "";
+  if (!dice && !spell.heal_at_slot_level) {
+    const fallback = damageFromText(spell, level);
+    if (fallback) ({ dice, type } = { dice: fallback.dice, type: fallback.type });
+  }
   if (dice) {
-    const type = dmg.damage_type?.name?.toLowerCase() ?? "";
     const multi = MULTI[spell.index];
-    out.damage = multi
-      ? `${multi[1](level)} ${multi[0]}s, each ${dice} ${type}`.trim()
-      : `${dice} ${type}`.trim();
+    const count = multi ? multi[1](level) : 1;
+    out.damage = multi ? `${count} ${multi[0]}s, each ${dice} ${type}`.trim() : `${dice} ${type}`.trim();
+    out.damageDice = dice; // what to roll (once per dart/ray when count > 1)
+    out.damageCount = count;
   }
 
   const heal = pickAt(spell.heal_at_slot_level, level);
-  if (heal) out.heal = heal.replace(/\s*\+\s*MOD/i, c.mod >= 0 ? ` + ${c.mod}` : ` - ${-c.mod}`);
+  if (heal) {
+    out.heal = heal.replace(/\s*\+\s*MOD/i, c.mod >= 0 ? ` + ${c.mod}` : ` - ${-c.mod}`);
+    out.healDice = out.heal;
+  }
 
   const area = spell.area_of_effect;
   if (area) out.area = `${area.size} ft ${area.type}`;
