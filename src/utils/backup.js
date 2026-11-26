@@ -7,6 +7,9 @@ export const DATA_KEYS = [
   ["mb:npcs", "npcs"],
   ["mb:items", "items"],
   ["mb:lore", "lore places"],
+  ["mb:groups:npcs", "NPC folders"],
+  ["mb:groups:lore", "lore folders"],
+  ["mb:groups:items", "item folders"],
   ["mb:hp", "monster HP"],
   ["mb:slots", "spell slots"],
 ];

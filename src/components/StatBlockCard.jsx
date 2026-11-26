@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import HealthTracker from "./HealthTracker.jsx";
 import SpellSlotTracker from "./SpellSlotTracker.jsx";
 import SpellBook from "./SpellBook.jsx";
+import DragGrip from "./DragGrip.jsx";
 import { ABILITIES, modifier } from "../utils/constants.js";
 import { isSpellLine, slotsFor } from "../utils/spells.js";
 
@@ -12,14 +13,34 @@ const splitEntry = (line) => {
   return i === -1 ? { name: line, desc: "" } : { name: line.slice(0, i), desc: line.slice(i + 2) };
 };
 const step = "flex h-7 w-7 items-center justify-center bg-white/20 text-lg leading-none hover:bg-white/35 disabled:opacity-30";
+// Status conditions you can put on a creature (5e rules), with a short reminder shown on hover.
+const CONDITIONS = {
+  Blinded: "Can't see. Auto-fails sight checks. Attacks against it have advantage; its attacks have disadvantage.",
+  Charmed: "Can't attack the charmer or target them with harmful effects. Charmer has advantage on social checks.",
+  Deafened: "Can't hear. Auto-fails hearing checks.",
+  Frightened: "Disadvantage on checks and attacks while the source is in sight. Can't willingly move closer to it.",
+  Grappled: "Speed is 0. Ends if the grappler is incapacitated or it is moved out of reach.",
+  Incapacitated: "Can't take actions or reactions.",
+  Invisible: "Can't be seen without help. Attacks against it have disadvantage; its attacks have advantage.",
+  Paralyzed: "Incapacitated, can't move or speak. Fails Str/Dex saves. Attacks have advantage; melee hits within 5 ft are crits.",
+  Petrified: "Turned to stone. Incapacitated, unaware, resistant to all damage, immune to poison and disease.",
+  Poisoned: "Disadvantage on attack rolls and ability checks.",
+  Prone: "Can only crawl. Disadvantage on attacks. Melee attacks against it have advantage, ranged have disadvantage.",
+  Restrained: "Speed is 0. Attacks against it have advantage; its attacks and Dex saves have disadvantage.",
+  Stunned: "Incapacitated, can't move, speaks falteringly. Fails Str/Dex saves. Attacks against it have advantage.",
+  Unconscious: "Incapacitated, prone, drops what it holds. Fails Str/Dex saves. Melee hits within 5 ft are crits.",
+  Exhaustion: "Levels of exhaustion. Name the level yourself with Custom, e.g. Exhaustion 2.",
+  Concentrating: "Maintaining a spell. Needs a Constitution save when damaged or the spell ends.",
+};
 const COLLAPSED_REM = 20; // the abilities/description/actions block is cut off after this many rem
 
 // A complete, self-contained stat block for ONE creature: numbers, live HP, abilities, traits and every attack.
 // `scope` keeps this creature's HP separate from every other creature (even duplicates of the same monster).
 export default function StatBlockCard({
   monster: m, name, scope, baseCr, active, initiative, inCombat, dragging, dropTarget,
+  conditions = [], onConditionsChange,
   onRename, onDuplicate, onRemove, onCrStep, onCrReset, onToggleCombat,
-  onGripDragStart, onCardDragOver, onCardDrop, onDragEnd,
+  gripProps, dropProps,
 }) {
   const [renaming, setRenaming] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -47,23 +68,14 @@ export default function StatBlockCard({
 
   return (
     <article
-      onDragOver={onCardDragOver}
-      onDrop={onCardDrop}
+      {...dropProps}
+      data-drag-image
       className={`flex flex-col border bg-white shadow-[0_18px_40px_-24px_rgba(0,0,0,0.35)] ${
         active ? "border-ink outline outline-4 outline-ink" : dropTarget ? "border-blood outline-dashed outline-4 outline-blood" : "border-line"
       } ${dragging ? "opacity-40" : ""}`}
     >
       {/* Grab bar: drag this to move the card */}
-      <div
-        draggable
-        onDragStart={onGripDragStart}
-        onDragEnd={onDragEnd}
-        title="Drag to move this card"
-        aria-label="Drag to move this card"
-        className="flex cursor-grab items-center justify-center gap-1 bg-paper py-1.5 text-mute hover:text-ink active:cursor-grabbing"
-      >
-        {Array.from({ length: 6 }, (_, i) => <span key={i} className="h-1 w-1 rounded-full bg-current" />)}
-      </div>
+      <DragGrip gripProps={gripProps} />
 
       <header className="px-5 pb-4 pt-4">
         <div className="flex items-start justify-between gap-3">
@@ -86,6 +98,36 @@ export default function StatBlockCard({
           )}
         </div>
         <p className="text-blood">{m.size} {m.type.toLowerCase()}</p>
+
+        {/* Status conditions: tap a chip's x to clear it */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {conditions.map((c) => (
+            <span key={c} title={CONDITIONS[c] ?? "Custom condition"} className={`inline-flex items-center gap-1 bg-ink py-1 pl-2.5 pr-1 text-paper ${label}`}>
+              {c}
+              <button
+                onClick={() => onConditionsChange(conditions.filter((x) => x !== c))}
+                aria-label={`Remove ${c}`}
+                className="flex h-6 w-6 items-center justify-center text-base leading-none hover:bg-white/20"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <select
+            value=""
+            aria-label="Add a status condition"
+            onChange={(e) => {
+              let next = e.target.value;
+              if (next === "__custom") next = (window.prompt("Condition name (e.g. Exhaustion 2, Hexed, Bleeding)") ?? "").trim();
+              if (next && !conditions.includes(next)) onConditionsChange([...conditions, next]);
+            }}
+            className={`h-8 border border-dashed border-mute bg-white px-2 text-mute hover:border-blood hover:text-blood ${label}`}
+          >
+            <option value="">+ Condition</option>
+            {Object.keys(CONDITIONS).filter((c) => !conditions.includes(c)).map((c) => <option key={c} value={c}>{c}</option>)}
+            <option value="__custom">Custom…</option>
+          </select>
+        </div>
       </header>
 
       {/* Red panel: the numbers + health tracker */}

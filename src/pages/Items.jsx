@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Field from "../components/Field.jsx";
+import GroupBoard from "../components/GroupBoard.jsx";
 import { itemStore } from "../services/itemStore.js";
 import { playerStore } from "../services/playerStore.js";
 import SearchPicker from "../components/SearchPicker.jsx";
 import { ITEM_TYPES, RARITIES } from "../utils/constants.js";
 import { input, label, btnPrimary, btnOutline, btnSmall } from "../utils/ui.js";
 
-const blank = { name: "", type: "Wondrous item", rarity: "Uncommon", value: "", attunement: false, description: "" };
+const blank = { name: "", type: "Wondrous item", rarity: "Uncommon", value: "", attunement: false, description: "", groupId: "" };
 
 const rarityStyle = (r) =>
   r === "Mundane" || r === "Common" ? "text-mute"
@@ -20,6 +21,7 @@ export default function Items() {
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [addingFolder, setAddingFolder] = useState(false);
   const [query, setQuery] = useState("");
   const [type, setType] = useState("");
   const [notice, setNotice] = useState("");
@@ -91,9 +93,8 @@ export default function Items() {
   };
 
   const q = query.toLowerCase();
-  const shown = rows
-    .filter((i) => (!type || i.type === type) && [i.name, i.description, i.rarity].some((v) => (v ?? "").toLowerCase().includes(q)))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  // No alphabetical sort any more: cards stay in the order you drag them into.
+  const shown = rows.filter((i) => (!type || i.type === type) && [i.name, i.description, i.rarity].some((v) => (v ?? "").toLowerCase().includes(q)));
 
   return (
     <section>
@@ -105,6 +106,7 @@ export default function Items() {
             <option value="">All types</option>
             {ITEM_TYPES.map((t) => <option key={t}>{t}</option>)}
           </select>
+          <button onClick={() => setAddingFolder(true)} className={btnOutline}>+ New folder</button>
           {!formOpen && <button onClick={() => setFormOpen(true)} className={btnPrimary}>Add item</button>}
         </div>
       </div>
@@ -142,17 +144,27 @@ export default function Items() {
 
       {notice && <p className="mb-4 text-sm text-ink" role="status">{notice}</p>}
 
-      {shown.length === 0 ? (
-        <p className="text-mute">No items match that search.</p>
-      ) : (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {shown.map((item) => {
+      <GroupBoard
+        adding={addingFolder}
+        onAddingChange={setAddingFolder}
+        groupKey="mb:groups:items"
+        rows={rows}
+        shown={shown}
+        filtering={!!(query || type)}
+        emptyText="No items match that search."
+        onRowsChange={(next) => {
+          itemStore.replaceAll(next);
+          refresh();
+        }}
+      >
+        {(item, ui) => {
             const holders = players
               .map((p) => ({ p, row: p.inventory.find((r) => r.itemId === item.id) }))
               .filter((x) => x.row);
-            return (
-              <article key={item.id} className="flex flex-col border border-line bg-white shadow-[0_18px_40px_-24px_rgba(0,0,0,0.35)]">
-                <header className="px-5 pb-3 pt-5">
+          return (
+              <article {...ui.articleProps} className={`flex flex-col border bg-white shadow-[0_18px_40px_-24px_rgba(0,0,0,0.35)] ${ui.stateClass}`}>
+              {ui.grip}
+                <header className="px-5 pb-3 pt-4">
                   <h2 className="font-display text-2xl leading-tight text-ink">{item.name}</h2>
                   <p className="text-sm">
                     <span className="text-mute">{item.type} · </span>
@@ -208,13 +220,13 @@ export default function Items() {
                   </button>
                   <button onClick={() => startEdit(item)} className={btnSmall}>Edit</button>
                   <button onClick={() => duplicate(item)} className={btnSmall}>Duplicate</button>
+                  {ui.groupPicker}
                   <button onClick={() => handleDelete(item)} className={`ml-auto text-blood hover:underline ${label}`}>Delete</button>
                 </footer>
               </article>
-            );
-          })}
-        </div>
-      )}
+          );
+        }}
+      </GroupBoard>
 
       <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-line pt-5 text-sm text-mute">
         <button onClick={handleRestore} className={btnSmall}>Restore deleted defaults</button>

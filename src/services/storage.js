@@ -22,5 +22,6 @@ export function createStore(key, seed = []) {
     },
     update: (id, data) => write(read().map((r) => (r.id === id ? { ...r, ...data, id } : r))),
     remove: (id) => write(read().filter((r) => r.id !== id)),
+    replaceAll: (rows) => write(rows), // used when drag-and-drop reorders the whole list
   };
 }

@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Field from "../components/Field.jsx";
+import GroupBoard from "../components/GroupBoard.jsx";
 import { loreStore } from "../services/loreStore.js";
 import { npcStore } from "../services/npcStore.js";
 import { campaignStore } from "../services/campaignStore.js";
 import { input, label, btnPrimary, btnOutline, btnSmall } from "../utils/ui.js";
 
-const KINDS = ["City", "Town", "Village", "Region", "Dungeon", "Fortress", "Landmark", "Tavern", "Other", "Diety", "Historical figure","Organization"];
-const blank = { name: "", kind: "City", region: "", ruler: "", campaignId: "", description: "", history: "", secrets: "" };
+const KINDS = ["City", "Town", "Village", "Region", "Dungeon", "Fortress", "Landmark", "Tavern", "Diety", "Historical figure","Organization","Other"];
+const blank = { name: "", kind: "City", region: "", ruler: "", campaignId: "", description: "", history: "", secrets: "", groupId: "" };
 
 export default function Lore() {
   const npcs = npcStore.all();
@@ -17,6 +18,7 @@ export default function Lore() {
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [addingFolder, setAddingFolder] = useState(false);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("");
 
@@ -53,9 +55,8 @@ export default function Lore() {
   };
 
   const q = query.toLowerCase();
-  const shown = rows
-    .filter((p) => (!kind || p.kind === kind) && [p.name, p.region, p.ruler, p.description, p.history].some((v) => (v ?? "").toLowerCase().includes(q)))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  // No alphabetical sort any more: cards stay in the order you drag them into.
+  const shown = rows.filter((p) => (!kind || p.kind === kind) && [p.name, p.region, p.ruler, p.description, p.history].some((v) => (v ?? "").toLowerCase().includes(q)));
 
   return (
     <section>
@@ -67,7 +68,8 @@ export default function Lore() {
             <option value="">All types</option>
             {KINDS.map((k) => <option key={k}>{k}</option>)}
           </select>
-          {!formOpen && <button onClick={() => setFormOpen(true)} className={btnPrimary}>Add place</button>}
+          <button onClick={() => setAddingFolder(true)} className={btnOutline}>+ New folder</button>
+          {!formOpen && <button onClick={() => setFormOpen(true)} className={btnPrimary}>Add Lore</button>}
         </div>
       </div>
 
@@ -106,60 +108,70 @@ export default function Lore() {
         </form>
       )}
 
-      {shown.length === 0 ? (
-        <p className="text-mute">{rows.length === 0 ? "No places yet. Add your first city or location with the button above." : "No places match that search."}</p>
-      ) : (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {shown.map((p) => {
-            // NPCs whose "Location" matches this place's name
-            const residents = p.name ? npcs.filter((n) => (n.location ?? "").trim().toLowerCase() === p.name.trim().toLowerCase()) : [];
-            const campaign = campaignById[p.campaignId];
-            const sub = [p.region, p.ruler && `Ruled by ${p.ruler}`].filter(Boolean).join(" · ");
-            return (
-              <article key={p.id} className="flex flex-col border border-line bg-white shadow-[0_18px_40px_-24px_rgba(0,0,0,0.35)]">
-                <header className="bg-blood px-5 py-4 text-white">
-                  <p className={`${label} text-white/75`}>{p.kind}{campaign ? ` · ${campaign.name}` : ""}</p>
-                  <h2 className="font-display text-3xl leading-tight">{p.name}</h2>
-                  {sub && <p className="text-white/85">{sub}</p>}
-                </header>
+      <GroupBoard
+        adding={addingFolder}
+        onAddingChange={setAddingFolder}
+        groupKey="mb:groups:lore"
+        rows={rows}
+        shown={shown}
+        filtering={!!(query || kind)}
+        emptyText={rows.length === 0 ? "No places yet. Add your first city or location with the button above." : "No places match that search."}
+        onRowsChange={(next) => {
+          loreStore.replaceAll(next);
+          refresh();
+        }}
+      >
+        {(p, ui) => {
+          // NPCs whose "Location" matches this place's name
+          const residents = p.name ? npcs.filter((n) => (n.location ?? "").trim().toLowerCase() === p.name.trim().toLowerCase()) : [];
+          const campaign = campaignById[p.campaignId];
+          const sub = [p.region, p.ruler && `Ruled by ${p.ruler}`].filter(Boolean).join(" · ");
+          return (
+            <article {...ui.articleProps} className={`flex flex-col border bg-white shadow-[0_18px_40px_-24px_rgba(0,0,0,0.35)] ${ui.stateClass}`}>
+              {ui.grip}
+              <header className="bg-blood px-5 py-4 text-white">
+                <p className={`${label} text-white/75`}>{p.kind}{campaign ? ` · ${campaign.name}` : ""}</p>
+                <h2 className="font-display text-3xl leading-tight">{p.name}</h2>
+                {sub && <p className="text-white/85">{sub}</p>}
+              </header>
 
-                <div className="flex-1 space-y-4 px-5 py-4 text-sm leading-relaxed text-mute">
-                  {p.description && <p className="whitespace-pre-line text-ink">{p.description}</p>}
-                  {p.history && (
-                    <div>
-                      <p className={`${label} text-blood`}>History</p>
-                      <p className="mt-1 whitespace-pre-line">{p.history}</p>
+              <div className="flex-1 space-y-4 px-5 py-4 text-sm leading-relaxed text-mute">
+                {p.description && <p className="whitespace-pre-line text-ink">{p.description}</p>}
+                {p.history && (
+                  <div>
+                    <p className={`${label} text-blood`}>History</p>
+                    <p className="mt-1 whitespace-pre-line">{p.history}</p>
+                  </div>
+                )}
+                {p.secrets && (
+                  <div>
+                    <p className={`${label} text-blood`}>Secrets (DM only)</p>
+                    <p className="mt-1 whitespace-pre-line">{p.secrets}</p>
+                  </div>
+                )}
+                {residents.length > 0 && (
+                  <div>
+                    <p className={`${label} text-blood`}>People here</p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {residents.map((n) => (
+                        <Link key={n.id} to="/npcs" className="border border-line bg-paper px-2 py-1 text-xs text-ink hover:border-blood hover:text-blood">
+                          {n.name}{n.role ? ` · ${n.role}` : ""}
+                        </Link>
+                      ))}
                     </div>
-                  )}
-                  {p.secrets && (
-                    <div>
-                      <p className={`${label} text-blood`}>Secrets (DM only)</p>
-                      <p className="mt-1 whitespace-pre-line">{p.secrets}</p>
-                    </div>
-                  )}
-                  {residents.length > 0 && (
-                    <div>
-                      <p className={`${label} text-blood`}>People here</p>
-                      <div className="mt-1 flex flex-wrap gap-1.5">
-                        {residents.map((n) => (
-                          <Link key={n.id} to="/npcs" className="border border-line bg-paper px-2 py-1 text-xs text-ink hover:border-blood hover:text-blood">
-                            {n.name}{n.role ? ` · ${n.role}` : ""}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
 
-                <footer className="flex items-center gap-3 border-t border-line px-5 py-3">
-                  <button onClick={() => startEdit(p)} className={btnSmall}>Edit</button>
-                  <button onClick={() => handleDelete(p)} className={`ml-auto text-blood hover:underline ${label}`}>Delete</button>
-                </footer>
-              </article>
-            );
-          })}
-        </div>
-      )}
+              <footer className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3">
+                <button onClick={() => startEdit(p)} className={btnSmall}>Edit</button>
+                {ui.groupPicker}
+                <button onClick={() => handleDelete(p)} className={`ml-auto text-blood hover:underline ${label}`}>Delete</button>
+              </footer>
+            </article>
+          );
+        }}
+      </GroupBoard>
     </section>
   );
 }

@@ -8,6 +8,7 @@ import { monsterStore } from "../services/monsterStore.js";
 import { playerStore } from "../services/playerStore.js";
 import { setHp } from "../services/hpStore.js";
 import { CR_LIST, scaleMonster } from "../utils/cr.js";
+import { useDragDrop } from "../utils/useDragDrop.js";
 
 const input = "w-full border border-line bg-white px-3 py-2 text-ink";
 const cell = "px-4 py-2 align-top";
@@ -59,8 +60,6 @@ export default function Campaigns() {
   const [mode, setMode] = useState(loadMode);
   const [cols, setCols] = useState(loadCols);
   const [pick, setPick] = useState(loadPick);
-  const [dragKey, setDragKey] = useState(null);
-  const [overKey, setOverKey] = useState(null);
 
   const refresh = () => setRows(campaignStore.all());
 
@@ -145,7 +144,7 @@ export default function Campaigns() {
     const labels = c.members.filter((m) => m.monsterId === member.monsterId).map((m) => m.label || base.name);
     let n = labels.length + 1;
     while (labels.includes(`${base.name} ${n}`)) n++;
-    const copy = { ...member, key: newKey(), label: `${base.name} ${n}`, combat: false };
+    const copy = { ...member, key: newKey(), label: `${base.name} ${n}`, combat: false, conditions: undefined };
     // First duplicate: also number the original. The copy goes after the last of its kind.
     const numbered = c.members.map((m) => (m.key === member.key && !m.label ? { ...m, label: `${base.name} 1` } : m));
     const last = numbered.map((m) => m.monsterId).lastIndexOf(member.monsterId);
@@ -184,7 +183,7 @@ export default function Campaigns() {
 
   const endCombat = (c) => {
     campaignStore.update(c.id, {
-      members: c.members.map((m) => ({ ...m, combat: false })),
+      members: c.members.map((m) => ({ ...m, combat: false, conditions: undefined })), // a fresh fight starts with no conditions
       tracker: { ...(c.tracker ?? {}), round: 1, active: null, init: {} },
     });
     refresh();
@@ -201,6 +200,15 @@ export default function Campaigns() {
     list.splice(to, 0, moved); // lands in the target's slot, pushing it along
     saveMembers(c, list);
   };
+
+  // Mouse and touch drag share one engine; only cards inside the same campaign can swap places.
+  const dnd = useDragDrop({
+    accepts: (d, t) => d.kind === "card" && t.kind === "card" && d.id !== t.id,
+    onDrop: (d, t) => {
+      const c = rows.find((x) => x.members.some((m) => m.key === d.id) && x.members.some((m) => m.key === t.id));
+      if (c) moveCard(c, d.id, t.id);
+    },
+  });
 
   const stepCr = (c, member, base, shown, dir) => {
     const next = CR_LIST[CR_LIST.indexOf(shown.cr) + dir];
@@ -401,30 +409,12 @@ export default function Campaigns() {
                                   initiative={tracker.init?.[r.member.key]}
                                   inCombat={!!r.member.combat}
                                   onToggleCombat={() => toggleCombat(c, r.member)}
-                                  dragging={dragKey === r.member.key}
-                                  dropTarget={dragKey !== null && overKey === r.member.key && dragKey !== r.member.key}
-                                  onGripDragStart={(e) => {
-                                    e.dataTransfer.effectAllowed = "move";
-                                    e.dataTransfer.setData("text/plain", r.member.key);
-                                    const card = e.currentTarget.closest("article");
-                                    if (card) e.dataTransfer.setDragImage(card, 24, 12);
-                                    setDragKey(r.member.key);
-                                  }}
-                                  onCardDragOver={(e) => {
-                                    if (dragKey === null) return;
-                                    e.preventDefault();
-                                    if (overKey !== r.member.key) setOverKey(r.member.key);
-                                  }}
-                                  onCardDrop={(e) => {
-                                    e.preventDefault();
-                                    if (dragKey !== null) moveCard(c, dragKey, r.member.key);
-                                    setDragKey(null);
-                                    setOverKey(null);
-                                  }}
-                                  onDragEnd={() => {
-                                    setDragKey(null);
-                                    setOverKey(null);
-                                  }}
+                                  dragging={dnd.drag?.id === r.member.key}
+                                  dropTarget={dnd.isOver("card", r.member.key)}
+                                  gripProps={dnd.gripProps("card", r.member.key)}
+                                  dropProps={dnd.dropProps("card", r.member.key)}
+                                  conditions={r.member.conditions ?? []}
+                                  onConditionsChange={(conditions) => patchMember(c, r.member.key, { conditions })}
                                   onRename={(label) => patchMember(c, r.member.key, { label: label && label !== r.base.name ? label : undefined })}
                                   onDuplicate={() => duplicate(c, r.member, r.base)}
                                   onRemove={() => removeMember(c, r.member, r.name)}
