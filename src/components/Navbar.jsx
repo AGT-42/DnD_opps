@@ -12,7 +12,8 @@ export default function Navbar() {
   // Create / import / monster pages live under the Bestiary, so keep its tab lit there.
   const inBestiary = /^\/(bestiary|import|monsters)/.test(useLocation().pathname);
   return (
-    <div className="bg-blood-deep/95">
+    // sticky: the bar stays at the top of the screen while the page scrolls underneath it
+    <div className="sticky top-0 z-40 bg-blood-deep">
       <header className="relative z-10">
         <nav className="grid items-center gap-y-4 px-6 py-6 sm:px-10 lg:grid-cols-[1fr_auto_1fr] 2xl:px-16">
           <span className={glow}>

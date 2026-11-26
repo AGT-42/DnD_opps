@@ -32,6 +32,12 @@ const CONDITIONS = {
   Exhaustion: "Levels of exhaustion. Name the level yourself with Custom, e.g. Exhaustion 2.",
   Concentrating: "Maintaining a spell. Needs a Constitution save when damaged or the spell ends.",
 };
+// Name size: shrinks when the LONGEST WORD is long (it can't wrap), so it still fits beside the picture.
+const nameSize = (name = "", hasImage) => {
+  const longest = Math.max(1, ...name.split(/\s+/).map((w) => w.length));
+  const [a, b, c] = hasImage ? [9, 12, 15] : [13, 17, 21];
+  return longest <= a ? "text-3xl" : longest <= b ? "text-2xl" : longest <= c ? "text-xl" : "text-lg";
+};
 const COLLAPSED_REM = 20; // the abilities/description/actions block is cut off after this many rem
 
 // A complete, self-contained stat block for ONE creature: numbers, live HP, abilities, traits and every attack.
@@ -78,26 +84,33 @@ export default function StatBlockCard({
       <DragGrip gripProps={gripProps} />
 
       <header className="px-5 pb-4 pt-4">
-        <div className="flex items-start justify-between gap-3">
-          {renaming ? (
-            <input
-              autoFocus
-              defaultValue={name}
-              aria-label="Creature name"
-              onBlur={(e) => { onRename(e.target.value.trim()); setRenaming(false); }}
-              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setRenaming(false); }}
-              className="min-w-0 flex-1 border border-line px-2 py-1 font-display text-2xl text-ink"
-            />
-          ) : (
-            <h3 className="font-display text-3xl leading-tight text-ink">{name}</h3>
-          )}
-          {(active || (initiative !== undefined && initiative !== "")) && (
-            <span className={`shrink-0 px-2 py-1 ${label} ${active ? "bg-ink text-paper" : "border border-line text-mute"}`}>
-              {active ? "Turn" : `Init ${initiative}`}
-            </span>
-          )}
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              {renaming ? (
+                <input
+                  autoFocus
+                  defaultValue={name}
+                  aria-label="Creature name"
+                  onBlur={(e) => { onRename(e.target.value.trim()); setRenaming(false); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setRenaming(false); }}
+                  className="min-w-0 flex-1 border border-line px-2 py-1 font-display text-2xl text-ink"
+                />
+              ) : (
+                // Several words wrap onto the next line; one long word shrinks instead (see nameSize).
+                <h3 className={`min-w-0 break-words font-display leading-tight text-ink ${nameSize(name, !!m.image)}`}>{name}</h3>
+              )}
+              {(active || (initiative !== undefined && initiative !== "")) && (
+                <span className={`shrink-0 px-2 py-1 ${label} ${active ? "bg-ink text-paper" : "border border-line text-mute"}`}>
+                  {active ? "Turn" : `Init ${initiative}`}
+                </span>
+              )}
+            </div>
+            <p className="text-blood">{m.size} {m.type.toLowerCase()}</p>
+          </div>
+          {/* Square picture: change h-20 w-20 to resize it */}
+          {m.image && <img src={m.image} alt={name} draggable={false} className="h-20 w-20 shrink-0 border-4 border-blood object-cover" />}
         </div>
-        <p className="text-blood">{m.size} {m.type.toLowerCase()}</p>
 
         {/* Status conditions: tap a chip's x to clear it */}
         <div className="mt-3 flex flex-wrap items-center gap-2">

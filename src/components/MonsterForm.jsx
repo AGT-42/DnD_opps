@@ -3,6 +3,7 @@ import { SIZES, TYPES, ABILITIES, emptyMonster } from "../utils/constants.js";
 import { CR_LIST, scaleMonster } from "../utils/cr.js";
 import { slotsFor, parseSpellcasting, ordinal } from "../utils/spells.js";
 import { fetchSpellList } from "../services/dndApi.js";
+import ImageField from "./ImageField.jsx";
 
 const input = "w-full border border-line bg-white px-3 py-2 text-ink";
 const NUMERIC = ["ac", "hp", ...ABILITIES];
@@ -121,7 +122,13 @@ export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLa
     data.description = [withoutSpellLines(form.description), ...spellLines(spellGroups, data.spellSlots)]
       .filter(Boolean)
       .join("\n");
-    onSubmit(data);
+    try {
+      onSubmit(data);
+    } catch (err) {
+      // localStorage is full (images are the usual cause)
+      if (err?.name !== "QuotaExceededError" && err?.code !== 22) throw err;
+      window.alert("Couldn't save: browser storage is full. Try a smaller image, remove images from other entries, or download a backup and clear some space.");
+    }
   };
 
   const chosen = spellGroups.filter((g) => g.spells.length > 0);
@@ -134,6 +141,8 @@ export default function MonsterForm({ initial = emptyMonster, onSubmit, submitLa
       <Field label="Name">
         <input name="name" value={form.name} onChange={set} required className={input} />
       </Field>
+
+      <ImageField square value={form.image ?? ""} onChange={(image) => setForm((f) => ({ ...f, image }))} title="Picture (shown on the combat card, you'll crop it to a square)" />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Size">

@@ -35,6 +35,16 @@ export default function Spotlight({ monster: m, next, onNext, total = 0, index =
       <div className="relative grid min-h-34 md:grid-cols-[minmax(0,1fr)_min(28rem,45vw)_minmax(0,1fr)]">
         {/* Left */}
         <div style={{ containerType: "inline-size" }} className="flex flex-col justify-center py-8 md:py-16 md:pr-10">
+          {/* Picture above the name. Its width follows the column width (min 8rem, max 16rem), so it scales with the screen. */}
+          {detailed && m.image && (
+            <img
+              src={m.image}
+              alt={m.name}
+              draggable={false}
+              className="mb-6 aspect-square border-[6px] border-blood object-cover"
+              style={{ width: "clamp(8rem, 55cqw, 16rem)" }}
+            />
+          )}
         <h1
   className="font-display leading-none text-balance"
   style={{ fontSize: `clamp(1.5rem, calc(100cqw / ${longestWord * 0.74}), 3.5rem)` }}

@@ -5,6 +5,7 @@ import GroupBoard from "../components/GroupBoard.jsx";
 import { itemStore } from "../services/itemStore.js";
 import { playerStore } from "../services/playerStore.js";
 import SearchPicker from "../components/SearchPicker.jsx";
+import BackToTop from "../components/BackToTop.jsx";
 import { ITEM_TYPES, RARITIES } from "../utils/constants.js";
 import { input, label, btnPrimary, btnOutline, btnSmall } from "../utils/ui.js";
 
@@ -234,6 +235,8 @@ export default function Items() {
           Items go to players from here or from the <Link to="/players" className="text-ink underline underline-offset-2">Players</Link> tab.
         </span>
       </div>
+
+      <BackToTop />
     </section>
   );
 }

@@ -22,6 +22,7 @@ export const emptyMonster = {
   description: "",
   actions: "",
   bonusActions: "",
+  image: "", // optional square picture (data URL)
   spellSlots: [0, 0, 0, 0, 0, 0, 0, 0, 0], // slots per spell level, 1st to 9th
 };
 

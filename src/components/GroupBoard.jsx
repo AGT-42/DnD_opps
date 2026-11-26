@@ -89,16 +89,16 @@ export default function GroupBoard({ groupKey, rows, shown, filtering, emptyText
   const showUngrouped = groups.length > 0 && (ungrouped.length > 0 || draggingCard);
 
   const ungroupedSection = (
-    <div key="ungrouped" {...dnd.dropProps("group", "")} className={`space-y-4 ${dnd.isOver("group", "") ? "outline-dashed outline-4 outline-offset-4 outline-blood" : ""}`}>
+    <div key="ungrouped" {...dnd.dropProps("group", "")} className={`space-y-3 ${dnd.isOver("group", "") ? "outline-dashed outline-4 outline-offset-4 outline-blood" : ""}`}>
       <h2 className={`${label} border-b-2 border-line pb-2 text-mute`}>No folder · {ungrouped.length}</h2>
       {ungrouped.length > 0 ? grid(ungrouped) : hint("Drop here to take a card out of its folder")}
     </div>
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {(groups.length > 0 || adding) && <div className="flex flex-wrap items-center justify-between gap-3">
-        {groups.length > 0 ? <span className="text-sm text-mute">Drag the grips to reorder cards, move them between folders, or move a whole folder.</span> : <span />}
+        {groups.length > 0 ? <span className="text-xs text-mute">Drag the grips to reorder cards, move them between folders, or move a whole folder.</span> : <span />}
         {adding ? (
           <form
             onSubmit={(e) => {
@@ -128,10 +128,10 @@ export default function GroupBoard({ groupKey, rows, shown, filtering, emptyText
               <div
                 key={g.id}
                 {...dnd.dropProps("group", g.id)}
-                className={`space-y-4 ${groupDragging ? "opacity-40" : ""} ${dnd.isOver("group", g.id) ? "outline-dashed outline-4 outline-offset-4 outline-blood" : ""}`}
+                className={`space-y-3 ${groupDragging ? "opacity-40" : ""} ${dnd.isOver("group", g.id) ? "outline-dashed outline-4 outline-offset-4 outline-blood" : ""}`}
               >
-                <div data-drag-image className="flex flex-wrap items-center gap-3 bg-blood p-2 text-white">
-                  <DragGrip variant="square" gripProps={dnd.gripProps("group", g.id)} label="Drag to move this whole folder" />
+                <div data-drag-image className="flex items-center gap-2 bg-blood px-1.5 py-1 text-white">
+                  <DragGrip variant="square" compact gripProps={dnd.gripProps("group", g.id)} label="Drag to move this whole folder" />
                   {renamingId === g.id ? (
                     <input
                       autoFocus
@@ -146,18 +146,18 @@ export default function GroupBoard({ groupKey, rows, shown, filtering, emptyText
                         if (e.key === "Enter") e.currentTarget.blur();
                         if (e.key === "Escape") setRenamingId(null);
                       }}
-                      className="min-w-0 flex-1 border border-line bg-white px-2 py-1 font-display text-2xl text-ink"
+                      className="min-w-0 flex-1 border border-line bg-white px-2 py-0.5 font-display text-xl text-ink"
                     />
                   ) : (
-                    <h2 className="min-w-0 flex-1 font-display text-3xl leading-tight">
-                      {g.name} <span className="text-lg text-white/75">· {items.length}</span>
+                    <h2 title={g.name} className="min-w-0 flex-1 truncate font-display text-xl leading-tight">
+                      {g.name} <span className="text-base text-white/75">· {items.length}</span>
                     </h2>
                   )}
-                  <button onClick={() => patchGroup(g.id, { collapsed: !g.collapsed })} aria-expanded={!g.collapsed} className={`px-2 py-2 hover:underline ${label}`}>
+                  <button onClick={() => patchGroup(g.id, { collapsed: !g.collapsed })} aria-expanded={!g.collapsed} className={`px-2 py-1.5 hover:underline ${label}`}>
                     {g.collapsed ? "Show" : "Hide"}
                   </button>
-                  <button onClick={() => setRenamingId(g.id)} className={`px-2 py-2 hover:underline ${label}`}>Rename</button>
-                  <button onClick={() => deleteGroup(g)} className={`px-2 py-2 hover:underline ${label}`}>Delete</button>
+                  <button onClick={() => setRenamingId(g.id)} className={`px-2 py-1.5 hover:underline ${label}`}>Rename</button>
+                  <button onClick={() => deleteGroup(g)} className={`px-2 py-1.5 hover:underline ${label}`}>Delete</button>
                 </div>
                 {!g.collapsed && (items.length > 0 ? grid(items) : hint(filtering ? "No matches in this folder" : "Empty folder. Drag cards here."))}
               </div>

@@ -6,10 +6,11 @@ import { npcStore } from "../services/npcStore.js";
 import { itemStore } from "../services/itemStore.js";
 import { campaignStore } from "../services/campaignStore.js";
 import SearchPicker from "../components/SearchPicker.jsx";
+import ImageField from "../components/ImageField.jsx";
 import { RELATIONS } from "../utils/constants.js";
 import { input, label, btnPrimary, btnOutline, btnSmall } from "../utils/ui.js";
 
-const blank = { name: "", playerName: "", race: "", charClass: "", level: 1, campaignId: "", notes: "" };
+const blank = { name: "", playerName: "", race: "", charClass: "", level: 1, campaignId: "", notes: "", image: "" };
 const small = "border border-line bg-white px-2 py-1.5 text-sm";
 const redBtn = `bg-blood px-3 py-1.5 text-white hover:brightness-110 ${label}`;
 const step = "flex h-7 w-7 items-center justify-center border border-line text-lg leading-none hover:border-blood hover:text-blood disabled:opacity-30";
@@ -61,11 +62,15 @@ function PlayerCard({ player: p, npcs, items, campaign, onEdit, onDelete, onChan
 
   return (
     <article className="flex flex-col border border-line bg-white shadow-[0_18px_40px_-24px_rgba(0,0,0,0.35)]">
-      <header className="bg-blood px-5 py-4 text-white">
-        <h2 className="font-display text-3xl leading-tight">{p.name}</h2>
-        {sub && <p className="text-white/85">{sub}</p>}
-        {p.playerName && <p className={`mt-1 ${label} text-white/75`}>Played by {p.playerName}</p>}
-        {campaign && <p className={`mt-1 ${label} text-white/75`}>Campaign: {campaign.name}</p>}
+      <header className="flex items-start justify-between gap-4 bg-blood px-5 py-4 text-white">
+        <div className="min-w-0 flex-1 break-words">
+          <h2 className="font-display text-3xl leading-tight">{p.name}</h2>
+          {sub && <p className="text-white/85">{sub}</p>}
+          {p.playerName && <p className={`mt-1 ${label} text-white/75`}>Played by {p.playerName}</p>}
+          {campaign && <p className={`mt-1 ${label} text-white/75`}>Campaign: {campaign.name}</p>}
+        </div>
+        {/* Square portrait with a black border: change h-24 w-24 to resize it */}
+        {p.image && <img src={p.image} alt={p.name} draggable={false} className="h-24 w-24 shrink-0 border-4 border-black object-cover" />}
       </header>
 
       <div className="flex-1 space-y-6 px-5 py-5">
@@ -199,9 +204,16 @@ export default function Players() {
       level: Math.max(1, Math.min(20, Number(form.level) || 1)),
       campaignId: form.campaignId,
       notes: form.notes,
+      image: form.image ?? "",
     };
-    if (editingId) playerStore.update(editingId, data);
-    else playerStore.create({ ...data, affiliations: [], inventory: [] });
+    try {
+      if (editingId) playerStore.update(editingId, data);
+      else playerStore.create({ ...data, affiliations: [], inventory: [] });
+    } catch {
+      // localStorage is full (images are the usual cause)
+      window.alert("Couldn't save: browser storage is full. Try a smaller image, remove images from other entries, or download a backup and clear some space.");
+      return;
+    }
     refresh();
     closeForm();
   };
@@ -256,6 +268,7 @@ export default function Players() {
               </select>
             </Field>
           </div>
+          <ImageField square value={form.image ?? ""} onChange={(image) => setForm((f) => ({ ...f, image }))} title="Portrait (you'll crop it to a square)" />
           <Field label="Notes">
             <textarea name="notes" rows="3" value={form.notes} onChange={set} className={input} />
           </Field>
