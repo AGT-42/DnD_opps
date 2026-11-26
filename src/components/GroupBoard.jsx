@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DragGrip from "./DragGrip.jsx";
+import Masonry from "./Masonry.jsx";
 import { createStore } from "../services/storage.js";
 import { useDragDrop } from "../utils/useDragDrop.js";
 import { moveCard, moveGroup, moveToGroup } from "../utils/reorder.js";
@@ -13,7 +14,7 @@ const groupStore = (key) => (stores[key] ??= createStore(key));
 //   shown         the rows to display right now (after search / filters)
 //   onRowsChange  called with the full new list whenever a drag or group change reorders it
 //   children      (item, ui) => card. ui.grip, ui.articleProps, ui.stateClass and ui.groupPicker plug into the card.
-export default function GroupBoard({ groupKey, rows, shown, filtering, emptyText, onRowsChange, adding, onAddingChange, children }) {
+export default function GroupBoard({ groupKey, rows, shown, filtering, emptyText, onRowsChange, adding, onAddingChange, columns = 3, children }) {
   const store = groupStore(groupKey);
   const [groups, setGroups] = useState(store.all);
   const [renamingId, setRenamingId] = useState(null);
@@ -73,10 +74,9 @@ export default function GroupBoard({ groupKey, rows, shown, filtering, emptyText
     };
   };
 
+  // Cards keep their natural height and pack into `columns` columns, like the combat page.
   const grid = (items) => (
-    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-      {items.map((item) => <div key={item.id} className="contents">{children(item, cardUi(item))}</div>)}
-    </div>
+    <Masonry columns={columns} items={items.map((item) => ({ key: item.id, node: children(item, cardUi(item)) }))} />
   );
 
   const hint = (text) => (

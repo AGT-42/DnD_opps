@@ -6,9 +6,12 @@ import { loreStore } from "../services/loreStore.js";
 import { npcStore } from "../services/npcStore.js";
 import { campaignStore } from "../services/campaignStore.js";
 import { input, label, btnPrimary, btnOutline, btnSmall } from "../utils/ui.js";
+import ImageField from "../components/ImageField.jsx";
+import ColsPicker from "../components/ColsPicker.jsx";
+import { useCols } from "../utils/useCols.js";
 
 const KINDS = ["City", "Town", "Village", "Region", "Dungeon", "Fortress", "Landmark", "Tavern", "Diety", "Historical figure","Organization","Other"];
-const blank = { name: "", kind: "City", region: "", ruler: "", campaignId: "", description: "", history: "", secrets: "", groupId: "" };
+const blank = { name: "", kind: "City", region: "", ruler: "", campaignId: "", description: "", history: "", secrets: "", groupId: "", image: "" };
 
 export default function Lore() {
   const npcs = npcStore.all();
@@ -21,6 +24,7 @@ export default function Lore() {
   const [addingFolder, setAddingFolder] = useState(false);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("");
+  const [cols, setCols] = useCols("mb:loreCols");
 
   const refresh = () => setRows(loreStore.all());
   const set = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -34,11 +38,18 @@ export default function Lore() {
   const handleSubmit = (e) => {
     e.preventDefault();
     const data = { ...form, name: form.name.trim() };
-    if (editingId) loreStore.update(editingId, data);
-    else loreStore.create(data);
+    try {
+      if (editingId) loreStore.update(editingId, data);
+      else loreStore.create(data);
+    } catch {
+      // localStorage is full (images are the usual cause)
+      window.alert("Couldn't save: browser storage is full. Try a smaller image, remove images from other entries, or download a backup and clear some space.");
+      return;
+    }
     refresh();
     closeForm();
   };
+
 
   const startEdit = (place) => {
     setEditingId(place.id);
@@ -68,6 +79,7 @@ export default function Lore() {
             <option value="">All types</option>
             {KINDS.map((k) => <option key={k}>{k}</option>)}
           </select>
+          <ColsPicker cols={cols} onChange={setCols} />
           <button onClick={() => setAddingFolder(true)} className={btnOutline}>+ New folder</button>
           {!formOpen && <button onClick={() => setFormOpen(true)} className={btnPrimary}>Add Lore</button>}
         </div>
@@ -92,6 +104,7 @@ export default function Lore() {
               </select>
             </Field>
           </div>
+          <ImageField square value={form.image} onChange={(image) => setForm((f) => ({ ...f, image }))} title="Picture (you'll crop it to a square)" />
           <Field label="Description (what the party sees)">
             <textarea name="description" rows="3" value={form.description} onChange={set} className={input} />
           </Field>
@@ -102,7 +115,7 @@ export default function Lore() {
             <textarea name="secrets" rows="3" value={form.secrets} onChange={set} className={input} />
           </Field>
           <div className="flex flex-wrap gap-3">
-            <button className={btnPrimary}>{editingId ? "Save changes" : "Add place"}</button>
+            <button className={btnPrimary}>{editingId ? "Save changes" : "Add lore"}</button>
             <button type="button" onClick={closeForm} className={btnOutline}>Cancel</button>
           </div>
         </form>
@@ -112,6 +125,7 @@ export default function Lore() {
         adding={addingFolder}
         onAddingChange={setAddingFolder}
         groupKey="mb:groups:lore"
+        columns={cols}
         rows={rows}
         shown={shown}
         filtering={!!(query || kind)}
@@ -135,7 +149,10 @@ export default function Lore() {
                 {sub && <p className="text-white/85">{sub}</p>}
               </header>
 
-              <div className="flex-1 space-y-4 px-5 py-4 text-sm leading-relaxed text-mute">
+              <div className="flex flex-1 gap-4 px-5 py-4 text-sm leading-relaxed text-mute">
+                {/* Square picture: change h-44 w-44 to resize it, border-[5px] for the border thickness */}
+                {p.image && <img src={p.image} alt={p.name} draggable={false} className="h-44 w-44 shrink-0 border-[5px] border-blood object-cover" />}
+                <div className="min-w-0 flex-1 space-y-4 break-words">
                 {p.description && <p className="whitespace-pre-line text-ink">{p.description}</p>}
                 {p.history && (
                   <div>
@@ -161,6 +178,7 @@ export default function Lore() {
                     </div>
                   </div>
                 )}
+                </div>
               </div>
 
               <footer className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3">
