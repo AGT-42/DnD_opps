@@ -13,7 +13,13 @@ export default function Navbar() {
   const inBestiary = /^\/(bestiary|import|monsters)/.test(useLocation().pathname);
   return (
     // sticky: the bar stays at the top of the screen while the page scrolls underneath it
-    <div className="sticky top-0 z-40 bg-blood-deep">
+    <div className="sticky top-0 z-40 overflow-hidden bg-blood-deep">
+      {/* Transparent background image blending into bg-blood-deep */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[url('/snakebg.png')] bg-cover bg-center opacity-10"
+      />
+
       <header className="relative z-10">
         <nav className="grid items-center gap-y-4 px-6 py-6 sm:px-10 lg:grid-cols-[1fr_auto_1fr] 2xl:px-16">
           <span className={glow}>
